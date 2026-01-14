@@ -19,65 +19,68 @@ Goal: Build the best human-centered AI application using MedGemma for healthcare
 | Problem Domain | 15% |
 | Impact Potential | 15% |
 
-## Tech Stack
-- **Model**: `google/medgemma-1.5-4b-it` (Hugging Face)
-- **Dataset**: `alkzar90/NIH-Chest-X-ray-dataset` (Hugging Face)
-- **Framework**: transformers >= 4.50.0, PyTorch
-- **Demo**: Gradio or Streamlit
-- **GPU**: Required (CUDA with bfloat16 support)
+---
 
-## Development Environment
-- **No local GPU** - Use Kaggle notebooks and Google Colab
-- Local machine for code editing and documentation only
-- Python 3.10+
-- Primary compute: Kaggle (T4/P100, 30hrs/week)
+## Health AI Developer Foundations (HAI-DEF) Models
 
-## Project Structure
-```
-Med Gemma/
-├── CLAUDE.md                 # This file - project context
-├── README.md                 # Project documentation
-├── requirements.txt          # Python dependencies
-├── notebooks/                # Jupyter notebooks
-│   ├── 01_model_exploration.ipynb
-│   ├── 02_dataset_analysis.ipynb
-│   ├── 03_prototype.ipynb
-│   └── 04_final_solution.ipynb
-├── src/                      # Source code
-│   ├── __init__.py
-│   ├── model.py              # MedGemma wrapper
-│   ├── data.py               # Data loading
-│   ├── inference.py          # Inference pipeline
-│   ├── agents/               # Agentic components
-│   └── utils.py              # Helpers
-├── app/                      # Demo application
-│   └── demo.py
-├── tests/                    # Tests
-├── data/samples/             # Sample data
-├── outputs/                  # Generated outputs
-└── submission/               # Competition submission
-    ├── writeup.md
-    ├── video/
-    └── kaggle_notebook.ipynb
-```
+### MedGemma (Multimodal Medical AI)
+Gemma 3 variants trained for medical text and image comprehension.
 
-## Key Commands
-```bash
-# Install dependencies
-pip install -r requirements.txt
+| Model | HuggingFace ID | Params | Type |
+|-------|----------------|--------|------|
+| **MedGemma 1.5 4B IT** | `google/medgemma-1.5-4b-it` | 4B | Multimodal (recommended) |
+| MedGemma 4B IT | `google/medgemma-4b-it` | 4B | Multimodal |
+| MedGemma 4B PT | `google/medgemma-4b-pt` | 4B | Pre-trained multimodal |
+| MedGemma 27B Text IT | `google/medgemma-27b-text-it` | 27B | Text-only |
+| MedGemma 27B IT | `google/medgemma-27b-it` | 29B | Multimodal |
 
-# Run demo app
-python app/demo.py
+**MedGemma 1.5 Capabilities:**
+- 3D Medical Imaging (CT, MRI volumes)
+- 2D Medical Imaging (X-ray, dermatology, fundus, histopathology)
+- Longitudinal Analysis (compare scans over time)
+- Anatomical Localization (bounding boxes)
+- Document Understanding (lab reports, PDFs)
+- EHR Interpretation
 
-# Run tests
-pytest tests/
-```
+**Benchmarks:**
+| Task | Score |
+|------|-------|
+| MIMIC CXR (Chest X-ray) | 89.5% Macro F1 |
+| MedQA | 69.1% Accuracy |
+| EHRQA | 89.6% Accuracy |
+| CT Classification | 61.1% Macro Accuracy |
+| MRI Classification | 64.7% Macro Accuracy |
 
-## MedGemma Quick Reference
+### MedSigLIP (Medical Image Encoder)
+Vision encoder for classification and retrieval tasks.
 
-### Loading the Model
+| Model | HuggingFace ID | Params | Resolution |
+|-------|----------------|--------|------------|
+| MedSigLIP 448 | `google/medsiglip-448` | 0.9B | 448×448 |
+
+**Use Cases:**
+- Zero-shot image classification
+- Semantic image retrieval
+- Image-text matching
+- NOT for text generation (use MedGemma instead)
+
+### MedASR (Medical Speech Recognition)
+Conformer-based ASR for medical dictation.
+
+| Model | HuggingFace ID | Params | WER |
+|-------|----------------|--------|-----|
+| MedASR | `google/medasr` | 105M | 4.6% (radiology) |
+
+**Note:** Requires `transformers >= 5.0.0`
+
+---
+
+## Quick Start Code
+
+### MedGemma (Image Analysis)
 ```python
 from transformers import pipeline
+from PIL import Image
 import torch
 
 pipe = pipeline(
@@ -86,11 +89,6 @@ pipe = pipeline(
     torch_dtype=torch.bfloat16,
     device="cuda",
 )
-```
-
-### Analyzing an Image
-```python
-from PIL import Image
 
 messages = [
     {
@@ -106,31 +104,123 @@ output = pipe(text=messages, max_new_tokens=2000)
 print(output[0]["generated_text"][-1]["content"])
 ```
 
+### MedSigLIP (Zero-Shot Classification)
+```python
+from transformers import AutoProcessor, AutoModel
+import torch
+
+model = AutoModel.from_pretrained("google/medsiglip-448").to("cuda")
+processor = AutoProcessor.from_pretrained("google/medsiglip-448")
+
+texts = ["normal chest x-ray", "pneumonia", "pleural effusion"]
+inputs = processor(text=texts, images=[image], padding="max_length", return_tensors="pt").to("cuda")
+
+with torch.no_grad():
+    outputs = model(**inputs)
+    probs = torch.softmax(outputs.logits_per_image, dim=1)
+```
+
 ### Loading Dataset
 ```python
 from datasets import load_dataset
 
 # NIH Chest X-ray (112K images, 14 pathologies)
-dataset = load_dataset("alkzar90/NIH-Chest-X-ray-dataset")
+dataset = load_dataset("alkzar90/NIH-Chest-X-ray-dataset", streaming=True)
 ```
 
+---
+
+## Official Tutorials (GitHub)
+
+| Notebook | Description | Link |
+|----------|-------------|------|
+| Quick Start (HF) | Basic inference | [GitHub](https://github.com/google-health/medgemma/blob/main/notebooks/quick_start_with_hugging_face.ipynb) |
+| Quick Start (DICOM) | Medical image format | [GitHub](https://github.com/google-health/medgemma/blob/main/notebooks/quick_start_with_dicom.ipynb) |
+| Fine-Tuning | LoRA/QLoRA training | [GitHub](https://github.com/google-health/medgemma/blob/main/notebooks/fine_tune_with_hugging_face.ipynb) |
+| EHR Navigator | Agentic workflow | [GitHub](https://github.com/google-health/medgemma/blob/main/notebooks/ehr_navigator_agent.ipynb) |
+
+---
+
+## Datasets (HuggingFace)
+
+### Chest X-Ray
+| Dataset | ID | Size |
+|---------|-----|------|
+| NIH ChestX-ray14 | `alkzar90/NIH-Chest-X-ray-dataset` | 112K images |
+| Pneumonia | `hf-vision/chest-xray-pneumonia` | Pediatric CXR |
+
+### Medical QA
+| Dataset | ID |
+|---------|-----|
+| MedQA (USMLE) | `bigbio/med_qa` |
+| MedMCQA | `openlifescienceai/medmcqa` |
+
+### 3D Imaging
+| Dataset | ID | Size |
+|---------|-----|------|
+| CT-RATE | `ibrahimhamamci/CT-RATE` | 50K CT volumes |
+
+---
+
+## Development Environment
+
+- **No local GPU** - Use Kaggle notebooks and Google Colab
+- Local machine for code editing and documentation only
+- Python 3.10+
+- Primary compute: Kaggle (T4/P100, 30hrs/week)
+
+### Requirements
+```
+transformers>=4.50.0  # For MedGemma
+transformers>=5.0.0   # For MedASR (if using)
+accelerate>=0.27.0
+torch>=2.0.0
+datasets>=2.16.0
+Pillow>=10.0.0
+gradio>=4.0.0
+```
+
+---
+
+## Project Structure
+```
+Med Gemma/
+├── CLAUDE.md                 # This file
+├── README.md                 # Documentation
+├── requirements.txt          # Dependencies
+├── notebooks/                # Jupyter notebooks
+├── src/                      # Source code
+│   ├── model.py              # MedGemma wrapper
+│   ├── data.py               # Data loading
+│   └── agents/               # Agentic components
+├── app/                      # Demo application
+├── tests/                    # Tests
+├── data/samples/             # Sample data
+├── outputs/                  # Generated outputs
+└── submission/               # Competition materials
+```
+
+---
+
 ## Important Links
-- [Competition Page](https://www.kaggle.com/competitions/med-gemma-impact-challenge)
-- [MedGemma Model](https://huggingface.co/google/medgemma-1.5-4b-it)
-- [MedGemma GitHub](https://github.com/Google-Health/medgemma)
-- [HAI-DEF Terms](https://developers.google.com/health-ai-developer-foundations/terms)
-- [NIH Chest X-ray Dataset](https://huggingface.co/datasets/alkzar90/NIH-Chest-X-ray-dataset)
 
-## MedGemma Capabilities
-- 2D Medical Imaging: Chest X-ray, dermatology, fundus, histopathology
-- 3D Medical Imaging: CT and MRI volume interpretation
-- Longitudinal Analysis: Compare scans over time
-- Anatomical Localization: Bounding box detection
-- Document Understanding: Extract data from lab reports
-- EHR Interpretation: Text-based EHR data analysis
+| Resource | URL |
+|----------|-----|
+| Competition | https://www.kaggle.com/competitions/med-gemma-impact-challenge |
+| HAI-DEF Docs | https://developers.google.com/health-ai-developer-foundations |
+| MedGemma Model | https://huggingface.co/google/medgemma-1.5-4b-it |
+| MedGemma GitHub | https://github.com/Google-Health/medgemma |
+| MedSigLIP Model | https://huggingface.co/google/medsiglip-448 |
+| MedASR Model | https://huggingface.co/google/medasr |
+| HAI-DEF Terms | https://developers.google.com/health-ai-developer-foundations/terms |
 
-## Notes
-- HAI-DEF terms already accepted on Hugging Face
-- Model outputs require clinical verification - NOT for direct patient care
-- Focus on authentic clinical storytelling with Primary Care perspective
-- Develop locally, test on Kaggle notebooks with GPU
+---
+
+## Key Notes
+
+1. **Accept HAI-DEF terms** on Hugging Face before using models
+2. **Model outputs require clinical verification** - NOT for direct patient care
+3. **Fine-tuning recommended** for specific use cases (LoRA supported)
+4. **MedGemma 1.5** is the latest version with 3D imaging support
+5. **Use MedSigLIP** for classification tasks, MedGemma for generation
+6. **MedASR** can pipe output directly to MedGemma for voice-to-diagnosis workflows
