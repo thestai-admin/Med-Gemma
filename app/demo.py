@@ -33,6 +33,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 # Lazy loading for GPU environments
 _model = None
 _classifier = None
+_orchestrator = None
 
 
 def get_model():
@@ -55,6 +56,17 @@ def get_classifier():
         _classifier = MedSigLIP()
         print("Classifier loaded!")
     return _classifier
+
+
+def get_orchestrator():
+    """Lazy load PrimaCare orchestrator."""
+    global _orchestrator
+    if _orchestrator is None:
+        from src.agents import PrimaCareOrchestrator
+        print("Loading PrimaCare Orchestrator...")
+        _orchestrator = PrimaCareOrchestrator()
+        print("Orchestrator ready!")
+    return _orchestrator
 
 
 # =============================================================================
@@ -155,6 +167,39 @@ def answer_question(question: str) -> str:
         return f"Error: {str(e)}"
 
 
+def run_agentic_pipeline(
+    chief_complaint: str,
+    history: str,
+    image: Optional[Image.Image],
+    age: str,
+    gender: str,
+) -> str:
+    """Run the full agentic diagnostic pipeline."""
+    if not chief_complaint.strip():
+        return "Please enter a chief complaint."
+
+    orchestrator = get_orchestrator()
+
+    try:
+        age_int = int(age) if age and age.strip() else None
+    except ValueError:
+        age_int = None
+
+    gender_str = gender if gender and gender != "Unknown" else None
+
+    try:
+        result = orchestrator.run(
+            chief_complaint=chief_complaint,
+            history=history or "",
+            xray_image=image,
+            age=age_int,
+            gender=gender_str,
+        )
+        return result.to_report()
+    except Exception as e:
+        return f"Error running pipeline: {str(e)}"
+
+
 def generate_report(
     image: Image.Image,
     patient_age: str,
@@ -228,16 +273,81 @@ def create_demo():
         gr.Markdown("""
         # PrimaCare AI: Multimodal Diagnostic Support
 
-        **MedGemma Impact Challenge Demo**
+        **MedGemma Impact Challenge Demo** | *Agentic Workflow Prize Submission*
 
-        This demo showcases MedGemma's capabilities for primary care diagnostic support.
-        Upload a chest X-ray to get AI-powered analysis, or ask medical questions.
+        Multi-agent diagnostic support system for primary care physicians.
+        Combines patient history structuring, chest X-ray analysis, and clinical reasoning.
 
         > **Disclaimer:** This is a research demonstration. All outputs require clinical
         > verification by qualified healthcare professionals before any clinical use.
         """)
 
         with gr.Tabs():
+            # Tab 0: Agentic Pipeline (Main Feature)
+            with gr.TabItem("Agentic Pipeline"):
+                gr.Markdown("""
+                ### Multi-Agent Diagnostic Support
+
+                This pipeline uses three AI agents working together:
+                1. **Intake Agent** - Structures patient history into HPI format
+                2. **Imaging Agent** - Analyzes chest X-ray (if provided)
+                3. **Reasoning Agent** - Generates differential diagnosis and recommendations
+                """)
+
+                with gr.Row():
+                    with gr.Column(scale=1):
+                        agent_complaint = gr.Textbox(
+                            label="Chief Complaint",
+                            placeholder="e.g., Cough for 2 weeks with fever",
+                            lines=1,
+                        )
+                        agent_history = gr.Textbox(
+                            label="Clinical History",
+                            placeholder="e.g., 65yo male smoker. Productive cough with yellow sputum. Night sweats. 10lb weight loss.",
+                            lines=4,
+                        )
+                        with gr.Row():
+                            agent_age = gr.Textbox(
+                                label="Age",
+                                placeholder="65",
+                                scale=1,
+                            )
+                            agent_gender = gr.Dropdown(
+                                choices=["Male", "Female", "Other", "Unknown"],
+                                value="Unknown",
+                                label="Gender",
+                                scale=1,
+                            )
+                        agent_image = gr.Image(
+                            label="Chest X-ray (optional)",
+                            type="pil",
+                            height=250,
+                        )
+                        agent_btn = gr.Button("Run Diagnostic Pipeline", variant="primary", size="lg")
+
+                    with gr.Column(scale=1):
+                        agent_output = gr.Textbox(
+                            label="Clinical Assessment",
+                            lines=30,
+                            show_copy_button=True,
+                        )
+
+                agent_btn.click(
+                    run_agentic_pipeline,
+                    inputs=[agent_complaint, agent_history, agent_image, agent_age, agent_gender],
+                    outputs=[agent_output],
+                )
+
+                # Example cases
+                gr.Examples(
+                    examples=[
+                        ["Cough for 2 weeks with fever", "65 year old male smoker. Started with dry cough, now productive with yellow sputum. Low grade fever. Night sweats. 10 pound weight loss.", "65", "Male"],
+                        ["Chest pain for 3 hours", "45 year old female. Substernal pressure radiating to left arm. Started at rest. Diaphoresis.", "45", "Female"],
+                        ["Shortness of breath", "70 year old male with history of CHF. Increasing dyspnea on exertion. Orthopnea. Lower extremity edema.", "70", "Male"],
+                    ],
+                    inputs=[agent_complaint, agent_history, agent_age, agent_gender],
+                )
+
             # Tab 1: Image Analysis
             with gr.TabItem("Chest X-ray Analysis"):
                 with gr.Row():
