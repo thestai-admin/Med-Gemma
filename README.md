@@ -1,85 +1,131 @@
-# MedGemma Impact Challenge
+# PrimaCare AI - MedGemma Impact Challenge
+
+**Multi-agent diagnostic support system for primary care physicians**
 
 Competition entry for the [MedGemma Impact Challenge](https://www.kaggle.com/competitions/med-gemma-impact-challenge) - a Kaggle hackathon with $100,000 in prizes.
 
-## Competition Overview
+## Project Overview
 
-**Goal**: Build human-centered AI applications using MedGemma and other open models from Google's Health AI Developer Foundations (HAI-DEF).
+PrimaCare AI is a multimodal diagnostic support system built on MedGemma 1.5 4B and MedSigLIP. It uses an agentic architecture to help primary care physicians:
 
-**Deadline**: February 24, 2026
+- Structure patient histories into formal HPI format
+- Analyze chest X-rays with zero-shot classification
+- Generate differential diagnoses and recommended workups
+
+### Architecture
+
+```
+Patient → IntakeAgent → ImagingAgent → ReasoningAgent → Clinical Output
+              ↓              ↓              ↓
+         Structured       X-ray        Differential
+           HPI          Analysis        + Workup
+```
 
 ## Quick Start
 
 ### Prerequisites
 - Python 3.10+
-- Hugging Face account with HAI-DEF terms accepted
-- GPU access (Kaggle notebooks or Google Colab)
+- Hugging Face account with [HAI-DEF terms](https://huggingface.co/google/medgemma-1.5-4b-it) accepted
+- GPU access (Kaggle notebooks or Google Colab with T4/P100)
 
-### Installation
+### Run on Kaggle
 
-```bash
-pip install -r requirements.txt
-```
+1. Upload `notebooks/04-agentic-workflow.ipynb` to Kaggle
+2. Add your HF_TOKEN as a Kaggle secret
+3. Enable GPU accelerator (T4)
+4. Run all cells
 
-### Using MedGemma
+### Using MedGemma (Direct Model)
 
 ```python
-from transformers import pipeline
-import torch
+# IMPORTANT: Disable torch dynamo BEFORE importing torch
+import os
+os.environ["TORCHDYNAMO_DISABLE"] = "1"
 
-# Load the model
-pipe = pipeline(
-    "image-text-to-text",
-    model="google/medgemma-1.5-4b-it",
+import torch
+from transformers import AutoProcessor, AutoModelForImageTextToText
+from PIL import Image
+
+# Load model
+model = AutoModelForImageTextToText.from_pretrained(
+    "google/medgemma-1.5-4b-it",
     torch_dtype=torch.bfloat16,
-    device="cuda",
+    device_map="cuda",
 )
+processor = AutoProcessor.from_pretrained("google/medgemma-1.5-4b-it")
 
 # Analyze a chest X-ray
-from PIL import Image
-image = Image.open("path/to/xray.png")
+image = Image.open("path/to/xray.png").convert("RGB")
 
-messages = [
-    {
-        "role": "user",
-        "content": [
-            {"type": "image", "image": image},
-            {"type": "text", "text": "Describe this chest X-ray"}
-        ]
-    }
-]
+messages = [{
+    "role": "user",
+    "content": [
+        {"type": "image", "image": image},
+        {"type": "text", "text": "Describe this chest X-ray"}
+    ]
+}]
 
-output = pipe(text=messages, max_new_tokens=2000)
-print(output[0]["generated_text"][-1]["content"])
+inputs = processor.apply_chat_template(
+    messages, add_generation_prompt=True, tokenize=True,
+    return_dict=True, return_tensors="pt"
+).to("cuda")
+
+with torch.no_grad():
+    output_ids = model.generate(**inputs, max_new_tokens=2000, do_sample=False)
+
+generated_ids = output_ids[:, inputs["input_ids"].shape[-1]:]
+print(processor.batch_decode(generated_ids, skip_special_tokens=True)[0])
 ```
+
+## Notebooks
+
+| Notebook | Description |
+|----------|-------------|
+| `01-model-exploration.ipynb` | MedGemma + MedSigLIP capabilities exploration |
+| `03-prototype.ipynb` | PrimaCare AI full diagnostic pipeline |
+| `04-agentic-workflow.ipynb` | Multi-agent system + Gradio demo (main submission) |
 
 ## Project Structure
 
 ```
 Med Gemma/
-├── CLAUDE.md           # Project context for Claude Code
-├── README.md           # This file
-├── requirements.txt    # Python dependencies
-├── notebooks/          # Jupyter notebooks
-├── src/                # Source code
-├── app/                # Demo application
-├── tests/              # Tests
-├── data/               # Sample data
-├── outputs/            # Generated outputs
-└── submission/         # Competition submission materials
+├── notebooks/           # Kaggle-ready Jupyter notebooks
+├── src/
+│   ├── model.py        # MedGemma wrapper
+│   ├── data.py         # Data loading utilities
+│   ├── inference.py    # Inference pipeline
+│   └── agents/         # Agent implementations
+│       ├── intake.py
+│       ├── imaging.py
+│       ├── reasoning.py
+│       └── orchestrator.py
+├── app/
+│   └── demo.py         # Gradio demo application
+├── submission/
+│   ├── writeup.md      # Competition writeup
+│   └── video/          # Video demo script
+└── requirements.txt    # Python dependencies
 ```
+
+## Competition Details
+
+- **Prize Pool**: $100,000
+- **Deadline**: February 24, 2026
+- **Target Tracks**:
+  - Main Track ($10K-$30K)
+  - Agentic Workflow Prize ($5K)
 
 ## Resources
 
 - [MedGemma Model](https://huggingface.co/google/medgemma-1.5-4b-it)
 - [MedGemma GitHub](https://github.com/Google-Health/medgemma)
-- [NIH Chest X-ray Dataset](https://huggingface.co/datasets/alkzar90/NIH-Chest-X-ray-dataset)
 - [HAI-DEF Documentation](https://developers.google.com/health-ai-developer-foundations)
-
-## License
-
-This project uses models governed by the [Health AI Developer Foundations terms](https://developers.google.com/health-ai-developer-foundations/terms).
+- [Competition Page](https://www.kaggle.com/competitions/med-gemma-impact-challenge)
 
 ## Disclaimer
 
 This is a competition project. Model outputs are for demonstration purposes only and require clinical verification. Not intended for direct patient care.
+
+## License
+
+This project uses models governed by the [Health AI Developer Foundations terms](https://developers.google.com/health-ai-developer-foundations/terms).
