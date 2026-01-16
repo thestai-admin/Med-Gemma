@@ -238,5 +238,165 @@
         "source": "Lewinsohn DM, et al. ATS/IDSA/CDC TB Guidelines. Clin Infect Dis. 2017;64:e1-e33",
         "evidence_level": "Level A",
         "condition": "Tuberculosis"
+    },
+    {
+        "guideline_name": "ATS/IDSA Tuberculosis Guidelines 2016",
+        "section": "Treatment - Active TB",
+        "content": "Standard treatment for drug-susceptible pulmonary TB: Intensive phase (2 months) - isoniazid, rifampin, pyrazinamide, ethambutol (HRZE). Continuation phase (4 months) - isoniazid and rifampin (HR). Total duration 6 months. DOT recommended. Monitor LFTs, vision (ethambutol). Pyridoxine 25-50mg daily to prevent isoniazid neuropathy.",
+        "source": "Nahid P, et al. ATS/CDC/IDSA Treatment of TB. Clin Infect Dis. 2016;63:e147-e195",
+        "evidence_level": "Level A",
+        "condition": "Tuberculosis"
+    },
+    {
+        "guideline_name": "ATS/IDSA Tuberculosis Guidelines 2016",
+        "section": "Latent TB Treatment",
+        "content": "Latent TB infection (LTBI) treatment options: 3 months isoniazid + rifapentine weekly (3HP) - preferred. 4 months rifampin daily (4R). 6-9 months isoniazid daily (6H/9H). Treat LTBI in high-risk groups: HIV, recent TB contact, immunosuppression, TNF inhibitors, pre-transplant. Exclude active TB before starting LTBI treatment.",
+        "source": "Nahid P, et al. ATS/CDC/IDSA Treatment of TB. Clin Infect Dis. 2016;63:e147-e195",
+        "evidence_level": "Level A",
+        "condition": "Tuberculosis"
+    },
+    {
+        "guideline_name": "GINA Asthma Guidelines 2024",
+        "section": "Diagnosis",
+        "content": "Asthma diagnosis requires: Variable respiratory symptoms (wheeze, dyspnea, cough, chest tightness) AND variable expiratory airflow limitation (FEV1/FVC reduced, positive bronchodilator response >=12% and >=200mL, positive bronchial challenge, or PEF variability >10%). Document airflow limitation before starting ICS. FeNO >50ppb supports eosinophilic asthma.",
+        "source": "Global Initiative for Asthma (GINA) 2024 Report. www.ginasthma.org",
+        "evidence_level": "Level A",
+        "condition": "Asthma"
+    },
+    {
+        "guideline_name": "GINA Asthma Guidelines 2024",
+        "section": "Maintenance Treatment",
+        "content": "All adults with asthma should receive ICS-containing controller therapy. Track 1 (preferred): As-needed low-dose ICS-formoterol (Steps 1-2), regular ICS-formoterol (Steps 3-5). Track 2: As-needed SABA + ICS (Steps 1-2), daily ICS + as-needed SABA (Steps 3-5). Add LAMA at Step 4-5. Consider biologic therapy (anti-IgE, anti-IL5, anti-IL4R) for severe uncontrolled asthma.",
+        "source": "Global Initiative for Asthma (GINA) 2024 Report. www.ginasthma.org",
+        "evidence_level": "Level A",
+        "condition": "Asthma"
+    },
+    {
+        "guideline_name": "GINA Asthma Guidelines 2024",
+        "section": "Acute Exacerbation",
+        "content": "Acute asthma exacerbation: SABA via MDI+spacer or nebulizer. Systemic corticosteroids (prednisone 40-50mg daily x 5-7 days). Oxygen to target SpO2 93-95%. Add ipratropium for severe exacerbations. Consider IV magnesium sulfate for severe attacks not responding to initial treatment. ICU for impending respiratory failure or poor response.",
+        "source": "Global Initiative for Asthma (GINA) 2024 Report. www.ginasthma.org",
+        "evidence_level": "Level A",
+        "condition": "Asthma"
+    },
+    {
+        "guideline_name": "ACC/AHA Atrial Fibrillation Guidelines 2023",
+        "section": "Diagnosis and Classification",
+        "content": "AF diagnosis requires ECG documentation of irregularly irregular rhythm with absence of discrete P waves. Classification: paroxysmal (terminates within 7 days), persistent (>7 days), long-standing persistent (>12 months), permanent (accepted). Calculate CHA2DS2-VASc for stroke risk and HAS-BLED for bleeding risk to guide anticoagulation decisions.",
+        "source": "Joglar JA, et al. 2023 ACC/AHA/ACCP/HRS AF Guideline. Circulation. 2024;149:e1-e156",
+        "evidence_level": "Level A",
+        "condition": "Atrial Fibrillation"
+    },
+    {
+        "guideline_name": "ACC/AHA Atrial Fibrillation Guidelines 2023",
+        "section": "Anticoagulation",
+        "content": "Anticoagulation recommended for CHA2DS2-VASc >=2 in men, >=3 in women. DOACs (apixaban, rivaroxaban, edoxaban, dabigatran) preferred over warfarin except in moderate-severe mitral stenosis or mechanical valve. Aspirin alone NOT recommended for stroke prevention. Left atrial appendage occlusion for patients with contraindications to long-term anticoagulation.",
+        "source": "Joglar JA, et al. 2023 ACC/AHA/ACCP/HRS AF Guideline. Circulation. 2024;149:e1-e156",
+        "evidence_level": "Level A",
+        "condition": "Atrial Fibrillation"
+    },
+    {
+        "guideline_name": "ACC/AHA Atrial Fibrillation Guidelines 2023",
+        "section": "Rate and Rhythm Control",
+        "content": "Rate control: Target resting HR <110 bpm for most; <80 if symptomatic. Beta-blockers or non-dihydropyridine CCBs (diltiazem, verapamil) first-line. Avoid CCBs in HFrEF. Rhythm control: Consider for symptomatic AF, especially if recent onset. Cardioversion after adequate anticoagulation (>=3 weeks) or TEE to exclude LAA thrombus. Catheter ablation for drug-refractory symptomatic AF.",
+        "source": "Joglar JA, et al. 2023 ACC/AHA/ACCP/HRS AF Guideline. Circulation. 2024;149:e1-e156",
+        "evidence_level": "Level A",
+        "condition": "Atrial Fibrillation"
+    },
+    {
+        "guideline_name": "CHEST DVT Guidelines 2021",
+        "section": "Diagnosis",
+        "content": "For suspected DVT: Calculate Wells score. Low probability + negative D-dimer: DVT excluded. Moderate/high probability or positive D-dimer: compression ultrasound (CUS) of proximal veins. If initial CUS negative in moderate probability: repeat in 1 week or whole-leg ultrasound. Positive CUS: start anticoagulation. Consider alternative diagnoses (Baker's cyst, cellulitis, muscle strain).",
+        "source": "Stevens SM, et al. CHEST Guideline on VTE Diagnosis. Chest. 2021;160:e545-e608",
+        "evidence_level": "Level A",
+        "condition": "Deep Vein Thrombosis"
+    },
+    {
+        "guideline_name": "CHEST DVT Guidelines 2021",
+        "section": "Treatment",
+        "content": "For acute DVT: Start anticoagulation immediately. DOACs preferred (rivaroxaban, apixaban without lead-in, or LMWH lead-in then edoxaban/dabigatran). LMWH/fondaparinux for cancer-associated VTE (edoxaban/rivaroxaban also acceptable). Duration: 3 months for provoked, extended for unprovoked with low bleeding risk. Compression stockings no longer routinely recommended.",
+        "source": "Stevens SM, et al. CHEST Guideline on VTE Treatment. Chest. 2021;160:e545-e608",
+        "evidence_level": "Level A",
+        "condition": "Deep Vein Thrombosis"
+    },
+    {
+        "guideline_name": "ACC/AHA Hypertension Guidelines 2017",
+        "section": "Diagnosis and Classification",
+        "content": "Hypertension defined as BP >=130/80 mmHg (Stage 1: 130-139/80-89, Stage 2: >=140/90). Confirm with out-of-office measurements (ABPM or home BP). Screen for secondary causes in resistant HTN, early onset (<30), or atypical features. Basic evaluation: BMP, CBC, lipid panel, TSH, urinalysis, ECG. Consider echo if LVH suspected.",
+        "source": "Whelton PK, et al. 2017 ACC/AHA Hypertension Guideline. Hypertension. 2018;71:e13-e115",
+        "evidence_level": "Level A",
+        "condition": "Hypertension"
+    },
+    {
+        "guideline_name": "ACC/AHA Hypertension Guidelines 2017",
+        "section": "Treatment",
+        "content": "BP goal <130/80 for most adults with HTN. First-line agents: thiazide diuretics, ACE inhibitors, ARBs, CCBs. Start with two-drug combination if BP >=20/10 above goal. ACEi/ARB preferred in diabetes, CKD, or heart failure. Black patients: CCB or thiazide first-line. Avoid ACEi/ARB combination. Lifestyle: DASH diet, sodium <2300mg/day, exercise 90-150 min/week, weight loss.",
+        "source": "Whelton PK, et al. 2017 ACC/AHA Hypertension Guideline. Hypertension. 2018;71:e13-e115",
+        "evidence_level": "Level A",
+        "condition": "Hypertension"
+    },
+    {
+        "guideline_name": "ACC/AHA Hypertension Guidelines 2017",
+        "section": "Hypertensive Crisis",
+        "content": "Hypertensive urgency: BP >180/120 without end-organ damage - oral medications, lower BP over 24-48 hours. Hypertensive emergency: BP >180/120 WITH end-organ damage (encephalopathy, AKI, MI, aortic dissection, pulmonary edema) - IV medications in ICU, reduce MAP by 10-20% in first hour, then gradually to 160/100 over 2-6 hours. Avoid rapid drops.",
+        "source": "Whelton PK, et al. 2017 ACC/AHA Hypertension Guideline. Hypertension. 2018;71:e13-e115",
+        "evidence_level": "Level B",
+        "condition": "Hypertension"
+    },
+    {
+        "guideline_name": "ADA Diabetes Guidelines 2024",
+        "section": "Screening and Diagnosis",
+        "content": "Screen for type 2 diabetes in adults >=35, or any age with BMI >=25 and risk factors (first-degree relative with DM, high-risk ethnicity, CVD history, HTN, HDL <35 or TG >250, PCOS, physical inactivity, A1c >=5.7%). Diagnose with: FPG >=126 mg/dL, 2-hour OGTT >=200, A1c >=6.5%, or random glucose >=200 with symptoms. Confirm with repeat testing.",
+        "source": "American Diabetes Association Standards of Care in Diabetes - 2024. Diabetes Care. 2024;47:S1-S321",
+        "evidence_level": "Level A",
+        "condition": "Diabetes"
+    },
+    {
+        "guideline_name": "ADA Diabetes Guidelines 2024",
+        "section": "Type 2 Treatment",
+        "content": "A1c goal <7% for most adults (individualize). First-line: Metformin + lifestyle. If ASCVD, HF, or CKD present: Add SGLT2 inhibitor (empagliflozin, dapagliflozin) or GLP-1 RA (semaglutide, dulaglutide, liraglutide) regardless of A1c. If additional glycemic control needed: GLP-1 RA, SGLT2i, or tirzepatide preferred over SU, TZD, or basal insulin. Consider CGM for insulin users.",
+        "source": "American Diabetes Association Standards of Care in Diabetes - 2024. Diabetes Care. 2024;47:S1-S321",
+        "evidence_level": "Level A",
+        "condition": "Diabetes"
+    },
+    {
+        "guideline_name": "ADA Diabetes Guidelines 2024",
+        "section": "Acute Complications",
+        "content": "DKA criteria: glucose >250, pH <7.3, bicarbonate <18, anion gap >12, positive ketones. Treatment: IV fluids (0.9% saline initially), IV insulin infusion (0.1 units/kg/hr after fluids started), potassium replacement (add to fluids once K <5.3 and urine output confirmed). Monitor glucose hourly, BMP q2-4h. Transition to subQ insulin when anion gap closed and patient eating.",
+        "source": "American Diabetes Association Standards of Care in Diabetes - 2024. Diabetes Care. 2024;47:S1-S321",
+        "evidence_level": "Level A",
+        "condition": "Diabetes"
+    },
+    {
+        "guideline_name": "Berlin ARDS Definition 2012",
+        "section": "Diagnosis",
+        "content": "ARDS diagnosis requires: Acute onset (within 1 week of clinical insult). Bilateral opacities on chest imaging not fully explained by effusions, collapse, or nodules. Respiratory failure not fully explained by cardiac failure or fluid overload. PaO2/FiO2 ratio: Mild 200-300, Moderate 100-200, Severe <100 (on PEEP >=5 cmH2O). Risk factors include pneumonia, sepsis, aspiration, trauma, pancreatitis.",
+        "source": "ARDS Definition Task Force. JAMA. 2012;307:2526-2533",
+        "evidence_level": "Level A",
+        "condition": "ARDS"
+    },
+    {
+        "guideline_name": "ATS/ESICM/SCCM ARDS Guidelines 2017",
+        "section": "Management",
+        "content": "ARDS management: Low tidal volume ventilation (6 mL/kg predicted body weight), plateau pressure <30 cmH2O. Higher PEEP for moderate-severe ARDS. Prone positioning for >=12 hours/day if P/F <150. Neuromuscular blockade for 48 hours in early severe ARDS. Conservative fluid strategy once shock resolved. ECMO for refractory hypoxemia in experienced centers.",
+        "source": "Fan E, et al. ATS/ESICM/SCCM ARDS Guidelines. Am J Respir Crit Care Med. 2017;195:1253-1263",
+        "evidence_level": "Level A",
+        "condition": "ARDS"
+    },
+    {
+        "guideline_name": "Surviving Sepsis Campaign 2021",
+        "section": "Definition and Diagnosis",
+        "content": "Sepsis: life-threatening organ dysfunction caused by dysregulated host response to infection. Use SOFA score (>=2 point increase). qSOFA for screening: RR >=22, altered mentation, SBP <=100. Septic shock: sepsis + vasopressors needed to maintain MAP >=65 + lactate >2 mmol/L despite adequate fluid resuscitation. Hour-1 bundle: measure lactate, obtain cultures, start antibiotics, give fluids, start vasopressors if needed.",
+        "source": "Evans L, et al. Surviving Sepsis Campaign 2021 Guidelines. Crit Care Med. 2021;49:e1043-e1143",
+        "evidence_level": "Level A",
+        "condition": "Sepsis"
+    },
+    {
+        "guideline_name": "Surviving Sepsis Campaign 2021",
+        "section": "Treatment",
+        "content": "Sepsis treatment: IV crystalloid (30 mL/kg) within first 3 hours for hypotension or lactate >=4. Norepinephrine first-line vasopressor, target MAP >=65. Add vasopressin if norepinephrine dose rising. Empiric broad-spectrum antibiotics within 1 hour of recognition. De-escalate based on cultures. Source control within 6-12 hours. Hydrocortisone 200mg/day IV for refractory shock. Goal-directed fluid management after initial resuscitation.",
+        "source": "Evans L, et al. Surviving Sepsis Campaign 2021 Guidelines. Crit Care Med. 2021;49:e1043-e1143",
+        "evidence_level": "Level A",
+        "condition": "Sepsis"
     }
 ]

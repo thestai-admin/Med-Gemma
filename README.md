@@ -11,14 +11,16 @@ PrimaCare AI is a multimodal diagnostic support system built on MedGemma 1.5 4B 
 - Structure patient histories into formal HPI format
 - Analyze chest X-rays with zero-shot classification
 - Generate differential diagnoses and recommended workups
+- Retrieve evidence-based clinical practice guidelines (RAG)
+- Generate patient-friendly explanations
 
 ### Architecture
 
 ```
-Patient → IntakeAgent → ImagingAgent → ReasoningAgent → Clinical Output
-              ↓              ↓              ↓
-         Structured       X-ray        Differential
-           HPI          Analysis        + Workup
+Patient → IntakeAgent → ImagingAgent → ReasoningAgent → GuidelinesAgent → Output
+              ↓              ↓              ↓                 ↓
+         Structured       X-ray        Differential    Evidence-Based
+           HPI          Analysis        + Workup       Recommendations
 ```
 
 ## Quick Start
@@ -79,33 +81,95 @@ print(processor.batch_decode(generated_ids, skip_special_tokens=True)[0])
 
 ## Notebooks
 
-| Notebook | Description |
-|----------|-------------|
-| `01-model-exploration.ipynb` | MedGemma + MedSigLIP capabilities exploration |
-| `03-prototype.ipynb` | PrimaCare AI full diagnostic pipeline |
-| `04-agentic-workflow.ipynb` | Multi-agent system + Gradio demo (main submission) |
+| Notebook | Description | Status |
+|----------|-------------|--------|
+| `04-agentic-workflow.ipynb` | **Main submission** - 4-agent pipeline with RAG, evaluation metrics, Gradio demo | **Primary** |
+| `03-prototype.ipynb` | PrimaCare AI pipeline development | Reference |
+| `01-model-exploration.ipynb` | MedGemma + MedSigLIP capabilities exploration | Reference |
 
 ## Project Structure
 
 ```
 Med Gemma/
-├── notebooks/           # Kaggle-ready Jupyter notebooks
+├── notebooks/              # Kaggle-ready Jupyter notebooks
+│   └── 04-agentic-workflow.ipynb  # Main submission
 ├── src/
-│   ├── model.py        # MedGemma wrapper
-│   ├── data.py         # Data loading utilities
-│   ├── inference.py    # Inference pipeline
-│   └── agents/         # Agent implementations
-│       ├── intake.py
-│       ├── imaging.py
-│       ├── reasoning.py
-│       └── orchestrator.py
+│   ├── model.py           # MedGemma wrapper
+│   ├── data.py            # Data loading utilities
+│   ├── inference.py       # Inference pipeline
+│   └── agents/            # Agent implementations
+│       ├── intake.py      # IntakeAgent - HPI structuring
+│       ├── imaging.py     # ImagingAgent - X-ray analysis
+│       ├── reasoning.py   # ReasoningAgent - Differential Dx
+│       ├── guidelines.py  # GuidelinesAgent - RAG
+│       └── orchestrator.py # PrimaCareOrchestrator
+├── data/
+│   └── guidelines/        # Clinical guidelines for RAG
+│       └── chunks.json    # 47 guideline chunks
 ├── app/
-│   └── demo.py         # Gradio demo application
+│   └── demo.py            # Gradio demo application
+├── scripts/
+│   └── prepare_guidelines.py  # Embedding generation script
 ├── submission/
-│   ├── writeup.md      # Competition writeup
-│   └── video/          # Video demo script
-└── requirements.txt    # Python dependencies
+│   ├── writeup.md         # Competition writeup
+│   └── video/             # Video demo materials
+└── requirements.txt       # Python dependencies
 ```
+
+## Deployment
+
+### Requirements
+
+- **GPU**: NVIDIA T4 (16GB VRAM) minimum, recommended for Kaggle
+- **Memory**: 16GB+ system RAM
+- **Storage**: ~15GB for models
+- **Python**: 3.10+
+
+### Option 1: Kaggle Notebooks (Recommended)
+
+1. Upload `notebooks/04-agentic-workflow.ipynb` to Kaggle
+2. Add your `HF_TOKEN` as a Kaggle secret
+3. Enable GPU accelerator (T4 x2 or P100)
+4. Run all cells
+
+### Option 2: Local Setup
+
+```bash
+# Clone repository
+git clone https://github.com/thestai-admin/Med-Gemma.git
+cd Med-Gemma
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+# or: venv\Scripts\activate  # Windows
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Set HuggingFace token
+export HF_TOKEN=your_token_here
+
+# Run Gradio demo
+python app/demo.py
+```
+
+### Option 3: Google Colab
+
+1. Open notebook in Colab
+2. Change runtime to GPU (T4)
+3. Add HF_TOKEN to Colab secrets
+4. Run all cells
+
+### Model Requirements
+
+| Model | Size | VRAM |
+|-------|------|------|
+| MedGemma 1.5 4B | ~8GB | ~10GB |
+| MedSigLIP | ~3.5GB | ~4GB |
+| sentence-transformers | ~90MB | CPU |
+
+**Total VRAM**: ~14GB (fits on T4 16GB)
 
 ## Competition Details
 
