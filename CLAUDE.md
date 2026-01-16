@@ -1,105 +1,59 @@
-# MedGemma Impact Challenge Project
+# CLAUDE.md
 
-## Project: PrimaCare AI
-**Multi-agent diagnostic support system for primary care physicians**
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Competition Details
-- **Competition**: [MedGemma Impact Challenge](https://www.kaggle.com/competitions/med-gemma-impact-challenge)
-- **Deadline**: February 24, 2026 (11:59 PM UTC)
-- **Prize Pool**: $100,000 (1st: $30K, 2nd: $20K, 3rd: $15K, 4th: $10K)
-- **Special Prizes**: Agentic Workflow ($5K), Novel Task ($5K), Edge AI ($5K)
-- **Target**: Main Track + Agentic Workflow Prize
+## Project Overview
 
----
+PrimaCare AI is a multi-agent diagnostic support system for primary care physicians, built for the MedGemma Impact Challenge (Kaggle competition, deadline Feb 24, 2026). It uses MedGemma 1.5 4B and MedSigLIP for chest X-ray analysis and clinical reasoning.
 
-## MASTER CHECKLIST
-
-### Phase 1: Foundation (COMPLETED)
-- [x] Project structure created
-- [x] MedGemma 1.5 4B working on Kaggle T4
-- [x] MedSigLIP zero-shot classification working
-- [x] Basic notebooks (01, 03, 04) validated
-- [x] Agentic architecture implemented (4 agents)
-- [x] Gradio demo working with public URL
-- [x] GitHub repo pushed
-- [x] Basic writeup created
-- [x] Video script outline created
-
-### Phase 2: Improvements (IN PROGRESS - Week 1-2)
-
-#### High Priority
-- [ ] **Submit notebook to Kaggle** (get early visibility)
-- [ ] **NIH ChestX-ray14 evaluation** - Test on real dataset, add metrics
-- [ ] **Add more demo cases** - Pneumothorax, CHF, lung mass, TB
-- [ ] **Improve prompts** - Better structured outputs from agents
-
-#### Medium Priority
-- [ ] **LoRA fine-tuning** - Fine-tune on chest X-ray findings (Novel Task Prize)
-- [ ] **Add accuracy metrics** - Calculate precision/recall on test set
-- [ ] **Error handling** - Handle edge cases gracefully
-- [ ] **Polish Gradio UI** - Better layout, loading indicators
-
-#### Low Priority
-- [ ] **CT scan support** - Extend to 3D imaging
-- [ ] **MedASR integration** - Voice input support
-- [ ] **Batch processing** - Multiple images at once
-
-### Phase 3: Submission Materials (Week 3-4)
-- [ ] **Record 3-min video** - Use script in submission/video/
-- [ ] **Finalize writeup** - Polish 3-page document
-- [ ] **Create Kaggle submission** - Final notebook with outputs
-- [ ] **Public demo** - Ensure Gradio URL is accessible
-
-### Phase 4: Final Polish (Week 5-6)
-- [ ] **Review against criteria** - Score each criterion
-- [ ] **Get feedback** - Share with colleagues
-- [ ] **Final submission** - Before Feb 24, 11:59 PM UTC
-- [ ] **Backup submission** - Download all materials
-
----
-
-## Evaluation Criteria Scorecard
-
-| Criteria | Weight | Our Status | Target |
-|----------|--------|------------|--------|
-| Execution & Communication | 30% | Video/writeup pending | Polish video |
-| Effective HAI-DEF Model Use | 20% | MedGemma + MedSigLIP | Add fine-tuning |
-| Product Feasibility | 20% | Working demo | Add metrics |
-| Problem Domain | 15% | Primary care focus | More cases |
-| Impact Potential | 15% | Good narrative | Quantify impact |
-
----
-
-## Current Architecture
+## Architecture
 
 ```
-Patient → IntakeAgent → ImagingAgent → ReasoningAgent → Output
+Patient → IntakeAgent → ImagingAgent → ReasoningAgent → Clinical Output
               ↓              ↓              ↓
          Structured       X-ray        Differential
          HPI + Flags    Analysis        + Workup
 ```
 
-**Agents:**
-1. **IntakeAgent** - Structures HPI, identifies red flags
-2. **ImagingAgent** - MedGemma analysis + MedSigLIP classification
-3. **ReasoningAgent** - Differential diagnosis + workup
-4. **Orchestrator** - Coordinates pipeline
+**Agent Pipeline (src/agents/):**
+- `IntakeAgent` - Structures patient history into formal HPI format using MedGemma text generation
+- `ImagingAgent` - Analyzes chest X-rays with MedGemma + zero-shot classification with MedSigLIP
+- `ReasoningAgent` - Generates differential diagnosis, workup recommendations, and disposition
+- `PrimaCareOrchestrator` - Coordinates all agents, manages model sharing via lazy loading
 
----
+**Model Wrappers (src/model.py):**
+- `MedGemma` - Wrapper using `pipeline("image-text-to-text")` for multimodal analysis
+- `MedSigLIP` - Zero-shot classification using CLIP-style image-text matching
 
-## Technical Notes (Kaggle)
+## Commands
 
-### Required First Cell
+```bash
+# Run Gradio demo locally
+python app/demo.py
+
+# Push to GitHub
+git add -A && git commit -m "message" && git push
+```
+
+## Development Environment
+
+**Primary development happens on Kaggle notebooks** (T4 GPU, 30hrs/week free). The `notebooks/04-agentic-workflow.ipynb` is the main submission notebook.
+
+**Local development** is for code organization and git management only - no GPU available locally.
+
+## Kaggle-Specific Requirements
+
+Every notebook must start with:
 ```python
 import os
-os.environ["TORCHDYNAMO_DISABLE"] = "1"
+os.environ["TORCHDYNAMO_DISABLE"] = "1"  # MUST be before torch import
 
 import torch
 import warnings
 warnings.filterwarnings('ignore')
 ```
 
-### Model Loading (Direct - NOT pipeline)
+Model loading (use direct loading, NOT pipeline, for Kaggle compatibility):
 ```python
 from transformers import AutoProcessor, AutoModelForImageTextToText
 
@@ -111,83 +65,40 @@ model = AutoModelForImageTextToText.from_pretrained(
 processor = AutoProcessor.from_pretrained("google/medgemma-1.5-4b-it")
 ```
 
-### HF Login (Kaggle)
+HuggingFace authentication on Kaggle:
 ```python
 from huggingface_hub import login
 from kaggle_secrets import UserSecretsClient
 login(token=UserSecretsClient().get_secret("HF_TOKEN"))
 ```
 
-### Known Issues (Ignore)
-- `MessageFactory` warnings - protobuf version, doesn't affect execution
-- `slow image processor` warning - expected, works fine
-
----
-
-## Files Reference
+## Key Files
 
 | File | Purpose |
 |------|---------|
-| `notebooks/04-agentic-workflow.ipynb` | **Main submission notebook** |
-| `notebooks/03-prototype.ipynb` | PrimaCare AI pipeline |
-| `notebooks/01-model-exploration.ipynb` | Model exploration |
-| `submission/writeup.md` | 3-page competition writeup |
-| `submission/video/video_script.md` | Video recording script |
-| `src/agents/` | Agent implementations |
-| `app/demo.py` | Gradio demo app |
+| `notebooks/04-agentic-workflow.ipynb` | Main competition submission |
+| `notebooks/03-prototype.ipynb` | PrimaCare AI pipeline development |
+| `src/agents/orchestrator.py` | Main entry point - `PrimaCareOrchestrator.run()` |
+| `src/model.py` | MedGemma and MedSigLIP wrappers |
+| `app/demo.py` | Gradio demo application |
 
----
+## Data Classes
 
-## Datasets
+The agent pipeline uses these dataclasses to pass structured data:
 
-### Currently Using
-- `hf-vision/chest-xray-pneumonia` - Simple, works on Kaggle
+- `PatientContext` / `StructuredHPI` (intake.py) - Patient demographics and HPI elements
+- `ImageAnalysis` / `ImagingFinding` (imaging.py) - X-ray findings and classification results
+- `ClinicalRecommendation` / `Diagnosis` / `WorkupItem` (reasoning.py) - Clinical output
+- `PrimaCareResult` (orchestrator.py) - Complete pipeline result with `to_report()` method
 
-### To Add
-- `alkzar90/NIH-Chest-X-ray-dataset` - 112K images, 14 pathologies
-- More diverse pathology cases
+## Known Issues to Ignore
 
----
+- `MessageFactory` warnings - protobuf version mismatch, doesn't affect execution
+- `slow image processor` warning - expected behavior, works correctly
 
-## Next Session Tasks
+## External Resources
 
-1. Submit `04-agentic-workflow.ipynb` to Kaggle (public)
-2. Add NIH ChestX-ray14 evaluation cell
-3. Add 3-4 more clinical demo cases
-4. Calculate accuracy metrics
-
----
-
-## Important Links
-
-| Resource | URL |
-|----------|-----|
-| Competition | https://www.kaggle.com/competitions/med-gemma-impact-challenge |
-| Our GitHub | https://github.com/thestai-admin/Med-Gemma |
-| MedGemma Model | https://huggingface.co/google/medgemma-1.5-4b-it |
-| MedSigLIP Model | https://huggingface.co/google/medsiglip-448 |
-| NIH Dataset (Kaggle) | https://www.kaggle.com/datasets/nih-chest-xrays/data |
-| HAI-DEF Docs | https://developers.google.com/health-ai-developer-foundations |
-
----
-
-## Quick Commands
-
-```bash
-# Push to GitHub
-cd "/mnt/c/Users/tarke/Desktop/Med Gemma"
-git add -A && git commit -m "message" && git push
-
-# Check status
-git status
-```
-
----
-
-## Notes
-
-- **Deadline**: Feb 24, 2026 (~6 weeks remaining)
-- **GPU**: Kaggle T4 (30hrs/week free)
-- **Submission**: Can update until deadline
-- **Medals**: Based on community votes (already better than silver notebook)
-- **Prizes**: Based on judge evaluation criteria
+- MedGemma: `google/medgemma-1.5-4b-it` on HuggingFace
+- MedSigLIP: `google/medsiglip-448` on HuggingFace
+- HAI-DEF Docs: https://developers.google.com/health-ai-developer-foundations
+- Competition: https://www.kaggle.com/competitions/med-gemma-impact-challenge
