@@ -5,19 +5,20 @@ Multi-agent system for primary care diagnostic support.
 Designed for the MedGemma Impact Challenge - Agentic Workflow Prize.
 
 Architecture:
-    ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-    │   Intake    │ --> │   Imaging   │ --> │  Reasoning  │
-    │   Agent     │     │   Agent     │     │   Agent     │
-    └─────────────┘     └─────────────┘     └─────────────┘
-         │                    │                   │
-         v                    v                   v
-    Structured HPI      Image Analysis      Differential Dx
-                                            + Recommendations
+    ┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+    │   Intake    │ --> │   Imaging   │ --> │  Reasoning  │ --> │ Guidelines  │
+    │   Agent     │     │   Agent     │     │   Agent     │     │   Agent     │
+    └─────────────┘     └─────────────┘     └─────────────┘     └─────────────┘
+         │                    │                   │                    │
+         v                    v                   v                    v
+    Structured HPI      Image Analysis      Differential Dx     Evidence-Based
+                                            + Workup            Recommendations
 
 Agents:
 - IntakeAgent: Structures patient history into HPI format
 - ImagingAgent: Analyzes chest X-rays with MedGemma
 - ReasoningAgent: Combines clinical + imaging for diagnosis
+- GuidelinesAgent: RAG for clinical practice guidelines
 - PrimaCareOrchestrator: Coordinates all agents
 
 Usage:
@@ -34,11 +35,13 @@ Usage:
 from .intake import IntakeAgent
 from .imaging import ImagingAgent
 from .reasoning import ReasoningAgent
+from .guidelines import GuidelinesAgent
 from .orchestrator import PrimaCareOrchestrator
 
 __all__ = [
     "IntakeAgent",
     "ImagingAgent",
     "ReasoningAgent",
+    "GuidelinesAgent",
     "PrimaCareOrchestrator",
 ]

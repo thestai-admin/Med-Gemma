@@ -1,0 +1,242 @@
+[
+    {
+        "guideline_name": "ACC/AHA Chest Pain Guidelines 2021",
+        "section": "Initial Evaluation",
+        "content": "For patients presenting with acute chest pain, obtain a 12-lead ECG within 10 minutes of arrival. Patients with ST-elevation require immediate reperfusion therapy. For non-ST elevation, risk stratify using validated scores (HEART, TIMI). High-sensitivity troponin should be obtained at presentation and repeated at 1-3 hours.",
+        "source": "Gulati M, et al. 2021 AHA/ACC Guideline for Chest Pain. Circulation. 2021;144:e364-e454",
+        "evidence_level": "Level A",
+        "condition": "Chest Pain"
+    },
+    {
+        "guideline_name": "ACC/AHA Chest Pain Guidelines 2021",
+        "section": "Risk Stratification",
+        "content": "The HEART score (History, ECG, Age, Risk factors, Troponin) is recommended for risk stratification of acute chest pain. Score 0-3: low risk (0.9-1.7% 6-week MACE), consider discharge. Score 4-6: intermediate risk, observation/stress testing. Score 7-10: high risk, admission and cardiology consultation.",
+        "source": "Gulati M, et al. 2021 AHA/ACC Guideline for Chest Pain. Circulation. 2021;144:e364-e454",
+        "evidence_level": "Level A",
+        "condition": "Chest Pain"
+    },
+    {
+        "guideline_name": "ACC/AHA Chest Pain Guidelines 2021",
+        "section": "Imaging Recommendations",
+        "content": "For intermediate-risk patients with acute chest pain, coronary CT angiography (CCTA) is recommended as first-line imaging if available and patient is suitable. Alternative stress testing (stress echo, nuclear imaging) is appropriate when CCTA is not available or contraindicated. Chest X-ray should be obtained to evaluate for alternative diagnoses.",
+        "source": "Gulati M, et al. 2021 AHA/ACC Guideline for Chest Pain. Circulation. 2021;144:e364-e454",
+        "evidence_level": "Level A",
+        "condition": "Chest Pain"
+    },
+    {
+        "guideline_name": "ACC/AHA Chest Pain Guidelines 2021",
+        "section": "Non-Cardiac Causes",
+        "content": "Consider non-cardiac causes of chest pain including pulmonary embolism, pneumothorax, aortic dissection, esophageal rupture, and tension pneumothorax. D-dimer and CT pulmonary angiography for PE evaluation. Chest X-ray and CT for pneumothorax. CT angiography for suspected aortic dissection. Maintain high clinical suspicion in appropriate clinical context.",
+        "source": "Gulati M, et al. 2021 AHA/ACC Guideline for Chest Pain. Circulation. 2021;144:e364-e454",
+        "evidence_level": "Level B",
+        "condition": "Chest Pain"
+    },
+    {
+        "guideline_name": "IDSA/ATS Community-Acquired Pneumonia Guidelines 2019",
+        "section": "Diagnosis",
+        "content": "Diagnosis of CAP requires demonstration of an infiltrate on chest imaging (radiograph or CT) in a patient with compatible clinical features (cough, fever, sputum production, dyspnea, pleuritic chest pain). Procalcitonin can help guide antibiotic decisions. Blood cultures recommended for severe CAP. Sputum Gram stain and culture if quality specimen obtainable.",
+        "source": "Metlay JP, et al. ATS/IDSA CAP Guidelines 2019. Am J Respir Crit Care Med. 2019;200:e45-e67",
+        "evidence_level": "Level A",
+        "condition": "Pneumonia"
+    },
+    {
+        "guideline_name": "IDSA/ATS Community-Acquired Pneumonia Guidelines 2019",
+        "section": "Severity Assessment",
+        "content": "Use CURB-65 or PSI/PORT score to assess pneumonia severity and guide site of care. CURB-65: Confusion, Urea >7mmol/L, Respiratory rate >=30, BP <90/60, Age >=65. Score 0-1: outpatient. Score 2: consider admission. Score 3-5: severe pneumonia, consider ICU. PSI Class I-III: outpatient. Class IV-V: inpatient.",
+        "source": "Metlay JP, et al. ATS/IDSA CAP Guidelines 2019. Am J Respir Crit Care Med. 2019;200:e45-e67",
+        "evidence_level": "Level A",
+        "condition": "Pneumonia"
+    },
+    {
+        "guideline_name": "IDSA/ATS Community-Acquired Pneumonia Guidelines 2019",
+        "section": "Treatment - Outpatient",
+        "content": "For outpatient CAP without comorbidities: Amoxicillin 1g TID or Doxycycline 100mg BID or Azithromycin 500mg day 1 then 250mg daily. With comorbidities (COPD, diabetes, CKD, heart failure): Amoxicillin-clavulanate PLUS azithromycin OR respiratory fluoroquinolone monotherapy. Duration 5 days typically sufficient.",
+        "source": "Metlay JP, et al. ATS/IDSA CAP Guidelines 2019. Am J Respir Crit Care Med. 2019;200:e45-e67",
+        "evidence_level": "Level A",
+        "condition": "Pneumonia"
+    },
+    {
+        "guideline_name": "IDSA/ATS Community-Acquired Pneumonia Guidelines 2019",
+        "section": "Treatment - Inpatient",
+        "content": "For non-severe inpatient CAP: Beta-lactam (ceftriaxone, ampicillin-sulbactam, or cefotaxime) PLUS macrolide OR respiratory fluoroquinolone monotherapy. For severe CAP: Beta-lactam PLUS macrolide OR beta-lactam PLUS fluoroquinolone. Consider anti-pseudomonal coverage if risk factors present.",
+        "source": "Metlay JP, et al. ATS/IDSA CAP Guidelines 2019. Am J Respir Crit Care Med. 2019;200:e45-e67",
+        "evidence_level": "Level A",
+        "condition": "Pneumonia"
+    },
+    {
+        "guideline_name": "ACC/AHA/HFSA Heart Failure Guidelines 2022",
+        "section": "Diagnosis",
+        "content": "Heart failure diagnosis requires symptoms (dyspnea, orthopnea, fatigue, edema) with objective evidence of cardiac dysfunction. BNP >=100 pg/mL or NT-proBNP >=300 pg/mL supports diagnosis. Echocardiography is essential to assess EF and classify as HFrEF (<=40%), HFmrEF (41-49%), or HFpEF (>=50%). Chest X-ray may show cardiomegaly, pulmonary congestion.",
+        "source": "Heidenreich PA, et al. 2022 ACC/AHA/HFSA Heart Failure Guideline. Circulation. 2022;145:e895-e1032",
+        "evidence_level": "Level A",
+        "condition": "Heart Failure"
+    },
+    {
+        "guideline_name": "ACC/AHA/HFSA Heart Failure Guidelines 2022",
+        "section": "HFrEF Treatment",
+        "content": "For HFrEF (EF <=40%), guideline-directed medical therapy includes: ACE inhibitor/ARB/ARNI, beta-blocker (carvedilol, metoprolol succinate, or bisoprolol), mineralocorticoid receptor antagonist (spironolactone or eplerenone), and SGLT2 inhibitor (dapagliflozin or empagliflozin). These four pillars reduce mortality and hospitalization.",
+        "source": "Heidenreich PA, et al. 2022 ACC/AHA/HFSA Heart Failure Guideline. Circulation. 2022;145:e895-e1032",
+        "evidence_level": "Level A",
+        "condition": "Heart Failure"
+    },
+    {
+        "guideline_name": "ACC/AHA/HFSA Heart Failure Guidelines 2022",
+        "section": "Acute Decompensation",
+        "content": "For acute decompensated heart failure: IV diuretics (furosemide) for congestion relief. Assess volume status and perfusion. Warm and wet: diuretics +/- vasodilators. Cold and wet: consider inotropes with diuretics. Cold and dry: cautious fluids. Monitor daily weights, I/O, renal function. Early follow-up within 7-14 days post-discharge.",
+        "source": "Heidenreich PA, et al. 2022 ACC/AHA/HFSA Heart Failure Guideline. Circulation. 2022;145:e895-e1032",
+        "evidence_level": "Level A",
+        "condition": "Heart Failure"
+    },
+    {
+        "guideline_name": "ACC/AHA/HFSA Heart Failure Guidelines 2022",
+        "section": "Imaging in Heart Failure",
+        "content": "Chest X-ray findings in heart failure include: cardiomegaly (cardiothoracic ratio >0.5), cephalization of pulmonary vessels, interstitial edema (Kerley B lines), alveolar edema (bat-wing pattern), pleural effusions. Repeat imaging for acute changes. Echocardiography for EF assessment and structural evaluation.",
+        "source": "Heidenreich PA, et al. 2022 ACC/AHA/HFSA Heart Failure Guideline. Circulation. 2022;145:e895-e1032",
+        "evidence_level": "Level B",
+        "condition": "Heart Failure"
+    },
+    {
+        "guideline_name": "GOLD COPD Guidelines 2024",
+        "section": "Diagnosis",
+        "content": "COPD diagnosis requires spirometry showing post-bronchodilator FEV1/FVC <0.7 in a patient with respiratory symptoms and exposure history. Severity by FEV1: GOLD 1 (>=80%), GOLD 2 (50-79%), GOLD 3 (30-49%), GOLD 4 (<30%). ABE assessment tool categorizes by exacerbation history and symptoms (mMRC/CAT).",
+        "source": "Global Initiative for Chronic Obstructive Lung Disease (GOLD) 2024 Report",
+        "evidence_level": "Level A",
+        "condition": "COPD"
+    },
+    {
+        "guideline_name": "GOLD COPD Guidelines 2024",
+        "section": "Stable COPD Treatment",
+        "content": "Initial pharmacotherapy based on ABE group. Group A: bronchodilator (SABA, SAMA, or LABA, LAMA). Group B: LABA + LAMA combination. Group E (frequent exacerbators): LABA + LAMA, consider adding ICS if blood eosinophils >=300. Triple therapy (LABA + LAMA + ICS) for persistent exacerbations despite dual therapy.",
+        "source": "Global Initiative for Chronic Obstructive Lung Disease (GOLD) 2024 Report",
+        "evidence_level": "Level A",
+        "condition": "COPD"
+    },
+    {
+        "guideline_name": "GOLD COPD Guidelines 2024",
+        "section": "Exacerbation Management",
+        "content": "COPD exacerbation: acute worsening of respiratory symptoms requiring additional therapy. Treatment: Short-acting bronchodilators (SABA +/- SAMA), systemic corticosteroids (prednisone 40mg x 5 days), antibiotics if increased sputum purulence (amoxicillin-clavulanate, azithromycin, or respiratory fluoroquinolone). Supplemental O2 to target SpO2 88-92%.",
+        "source": "Global Initiative for Chronic Obstructive Lung Disease (GOLD) 2024 Report",
+        "evidence_level": "Level A",
+        "condition": "COPD"
+    },
+    {
+        "guideline_name": "GOLD COPD Guidelines 2024",
+        "section": "Imaging in COPD",
+        "content": "Chest X-ray in COPD may show hyperinflation, flattened diaphragms, increased AP diameter, and bullae. CT chest provides detailed assessment of emphysema pattern and severity. Chest imaging helps exclude alternative diagnoses and identify complications (pneumonia, pneumothorax, lung cancer). Annual LDCT recommended for lung cancer screening in appropriate patients.",
+        "source": "Global Initiative for Chronic Obstructive Lung Disease (GOLD) 2024 Report",
+        "evidence_level": "Level B",
+        "condition": "COPD"
+    },
+    {
+        "guideline_name": "Fleischner Society Pulmonary Nodule Guidelines 2017",
+        "section": "Solid Nodule Management",
+        "content": "For incidental solid pulmonary nodules in low-risk patients: <6mm no follow-up needed. 6-8mm: CT at 6-12 months, consider CT at 18-24 months. >8mm: CT at 3 months, PET/CT, or tissue sampling. High-risk patients (smoking history, upper lobe location): more aggressive surveillance. Multiple nodules: follow the dominant nodule.",
+        "source": "MacMahon H, et al. Fleischner Society Guidelines 2017. Radiology. 2017;284:228-243",
+        "evidence_level": "Level B",
+        "condition": "Lung Nodule"
+    },
+    {
+        "guideline_name": "Fleischner Society Pulmonary Nodule Guidelines 2017",
+        "section": "Ground-Glass Nodule Management",
+        "content": "For ground-glass nodules (GGN): <6mm no follow-up if solitary in low-risk patient. >=6mm: CT at 6-12 months to confirm persistence, then CT every 2 years until 5 years. Part-solid nodules: follow the solid component. Solid component >=6mm or growing: consider biopsy or resection. PET often negative for pure GGN.",
+        "source": "MacMahon H, et al. Fleischner Society Guidelines 2017. Radiology. 2017;284:228-243",
+        "evidence_level": "Level B",
+        "condition": "Lung Nodule"
+    },
+    {
+        "guideline_name": "USPSTF Lung Cancer Screening 2021",
+        "section": "Screening Recommendations",
+        "content": "Annual low-dose CT (LDCT) lung cancer screening recommended for adults 50-80 years with 20+ pack-year smoking history who currently smoke or quit within past 15 years. Screening should stop when patient has not smoked for 15 years or develops a health problem limiting life expectancy or ability to have curative lung surgery.",
+        "source": "US Preventive Services Task Force. JAMA. 2021;325:962-970",
+        "evidence_level": "Level A",
+        "condition": "Lung Cancer Screening"
+    },
+    {
+        "guideline_name": "NCCN Lung Cancer Guidelines 2024",
+        "section": "Initial Workup",
+        "content": "For suspected lung cancer: Complete staging workup including CT chest/abdomen with contrast, PET/CT, brain MRI (for stage IB and higher). Tissue diagnosis via least invasive method (bronchoscopy, CT-guided biopsy, EBUS, or surgical). Molecular testing for EGFR, ALK, ROS1, BRAF, KRAS G12C, NTRK, MET, RET, and PD-L1 for advanced NSCLC.",
+        "source": "NCCN Clinical Practice Guidelines in Oncology: Non-Small Cell Lung Cancer. Version 1.2024",
+        "evidence_level": "Level A",
+        "condition": "Lung Cancer"
+    },
+    {
+        "guideline_name": "NCCN Lung Cancer Guidelines 2024",
+        "section": "Suspicious Mass Workup",
+        "content": "For lung mass suspicious for malignancy: CT chest with contrast for characterization. PET/CT for metabolic activity assessment (SUV >2.5 concerning). Tissue diagnosis required before treatment. For central lesions: bronchoscopy with EBUS. For peripheral lesions: CT-guided biopsy or navigational bronchoscopy. Consider surgical resection for highly suspicious lesions in operable patients.",
+        "source": "NCCN Clinical Practice Guidelines in Oncology: Non-Small Cell Lung Cancer. Version 1.2024",
+        "evidence_level": "Level A",
+        "condition": "Lung Cancer"
+    },
+    {
+        "guideline_name": "ATS/ERS Interstitial Lung Disease Guidelines 2018",
+        "section": "IPF Diagnosis",
+        "content": "Idiopathic pulmonary fibrosis (IPF) diagnosis requires exclusion of known causes and either UIP pattern on HRCT (basal-predominant honeycombing, traction bronchiectasis, reticulation) or histopathologic UIP pattern. Multidisciplinary discussion recommended. BAL and surgical lung biopsy may be needed if imaging is indeterminate.",
+        "source": "Raghu G, et al. ATS/ERS/JRS/ALAT IPF Guidelines. Am J Respir Crit Care Med. 2018;198:e44-e68",
+        "evidence_level": "Level A",
+        "condition": "Interstitial Lung Disease"
+    },
+    {
+        "guideline_name": "ATS/ERS Interstitial Lung Disease Guidelines 2018",
+        "section": "ILD Workup",
+        "content": "For suspected ILD: HRCT chest is essential for pattern recognition. Pulmonary function tests (FVC, DLCO) for severity and monitoring. Autoimmune serologies (ANA, RF, anti-CCP, myositis panel) to exclude CTD-ILD. Consider bronchoscopy with BAL and possible surgical lung biopsy for diagnosis. Six-minute walk test for functional assessment.",
+        "source": "Raghu G, et al. ATS/ERS/JRS/ALAT IPF Guidelines. Am J Respir Crit Care Med. 2018;198:e44-e68",
+        "evidence_level": "Level B",
+        "condition": "Interstitial Lung Disease"
+    },
+    {
+        "guideline_name": "PESI Pulmonary Embolism Severity Index",
+        "section": "Risk Stratification",
+        "content": "PESI score for PE risk stratification: Age (years), Male (+10), Cancer (+30), Heart failure (+10), Chronic lung disease (+10), HR >=110 (+20), SBP <100 (+30), RR >=30 (+20), Temp <36C (+20), Altered mental status (+60), SpO2 <90% (+20). Class I-II (<=85): low risk, consider outpatient. Class III-V (>85): higher risk, inpatient management.",
+        "source": "Aujesky D, et al. Am J Respir Crit Care Med. 2005;172:1041-1046",
+        "evidence_level": "Level A",
+        "condition": "Pulmonary Embolism"
+    },
+    {
+        "guideline_name": "ACCP/ATS Pulmonary Embolism Guidelines 2016",
+        "section": "Diagnosis",
+        "content": "For suspected PE: Assess pre-test probability using Wells or Geneva score. Low probability + negative D-dimer: PE excluded. Intermediate/high probability or positive D-dimer: CT pulmonary angiography (CTPA). V/Q scan alternative if contrast contraindicated. Lower extremity ultrasound if DVT symptoms. Start anticoagulation if high clinical suspicion while awaiting imaging.",
+        "source": "Kearon C, et al. CHEST Guideline on VTE. Chest. 2016;149:315-352",
+        "evidence_level": "Level A",
+        "condition": "Pulmonary Embolism"
+    },
+    {
+        "guideline_name": "ACCP/ATS Pulmonary Embolism Guidelines 2016",
+        "section": "Treatment",
+        "content": "For acute PE without hemodynamic instability: Anticoagulation with DOAC (rivaroxaban, apixaban, edoxaban, dabigatran) preferred over warfarin. LMWH bridge if using warfarin or dabigatran/edoxaban. Duration: 3 months minimum, extended if unprovoked and low bleeding risk. For massive PE with hypotension: consider systemic thrombolysis, catheter-directed therapy, or embolectomy.",
+        "source": "Kearon C, et al. CHEST Guideline on VTE. Chest. 2016;149:315-352",
+        "evidence_level": "Level A",
+        "condition": "Pulmonary Embolism"
+    },
+    {
+        "guideline_name": "BTS Pleural Effusion Guidelines 2023",
+        "section": "Diagnostic Approach",
+        "content": "For new pleural effusion: Chest X-ray confirms presence (blunting of costophrenic angle with >200mL fluid). Ultrasound guides thoracentesis and characterizes effusion. Diagnostic thoracentesis if >10mm depth and cause unclear. Send for protein, LDH, pH, glucose, cell count, cytology, and culture. Light's criteria differentiates exudate vs transudate.",
+        "source": "Roberts ME, et al. BTS Pleural Disease Guideline 2023. Thorax. 2023;78:s1-s42",
+        "evidence_level": "Level A",
+        "condition": "Pleural Effusion"
+    },
+    {
+        "guideline_name": "BTS Pleural Effusion Guidelines 2023",
+        "section": "Management",
+        "content": "Management based on etiology: Transudative (CHF, cirrhosis, nephrotic): treat underlying cause, diuretics. Parapneumonic: antibiotics, drainage if complicated (pH <7.2, glucose <60, or loculated). Malignant: symptomatic drainage, consider pleurodesis or indwelling catheter for recurrent. Empyema: chest tube drainage and antibiotics, consider thoracoscopy if not resolving.",
+        "source": "Roberts ME, et al. BTS Pleural Disease Guideline 2023. Thorax. 2023;78:s1-s42",
+        "evidence_level": "Level A",
+        "condition": "Pleural Effusion"
+    },
+    {
+        "guideline_name": "ACEP Pneumothorax Guidelines",
+        "section": "Management",
+        "content": "For primary spontaneous pneumothorax: Small (<2cm at hilum) + asymptomatic: observation with O2, repeat CXR in 3-6 hours. Large or symptomatic: aspiration or chest tube. Tension pneumothorax: immediate needle decompression (2nd intercostal space, midclavicular line) followed by chest tube. Secondary pneumothorax generally requires admission and chest tube regardless of size.",
+        "source": "Yarmus L, Feller-Kopman D. Management of Pneumothorax. CHEST. 2012;142:1249-1259",
+        "evidence_level": "Level B",
+        "condition": "Pneumothorax"
+    },
+    {
+        "guideline_name": "ATS Tuberculosis Guidelines 2016",
+        "section": "Diagnosis",
+        "content": "For suspected pulmonary TB: Chest X-ray (upper lobe infiltrates, cavitation, miliary pattern). Collect 3 sputum specimens for AFB smear and culture. NAAT (GeneXpert) for rapid detection and rifampin resistance. Interferon-gamma release assay (IGRA) or TST for latent TB screening. Consider bronchoscopy with BAL if sputum-negative. Airborne isolation until TB excluded or treated.",
+        "source": "Lewinsohn DM, et al. ATS/IDSA/CDC TB Guidelines. Clin Infect Dis. 2017;64:e1-e33",
+        "evidence_level": "Level A",
+        "condition": "Tuberculosis"
+    }
+]

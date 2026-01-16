@@ -9,16 +9,17 @@ PrimaCare AI is a multi-agent diagnostic support system for primary care physici
 ## Architecture
 
 ```
-Patient → IntakeAgent → ImagingAgent → ReasoningAgent → Clinical Output
-              ↓              ↓              ↓
-         Structured       X-ray        Differential
-         HPI + Flags    Analysis        + Workup
+Patient → IntakeAgent → ImagingAgent → ReasoningAgent → GuidelinesAgent → Output
+              ↓              ↓              ↓                ↓
+         Structured       X-ray        Differential    Evidence-Based
+         HPI + Flags    Analysis        + Workup       Recommendations
 ```
 
 **Agent Pipeline (src/agents/):**
 - `IntakeAgent` - Structures patient history into formal HPI format using MedGemma text generation
 - `ImagingAgent` - Analyzes chest X-rays with MedGemma + zero-shot classification with MedSigLIP
 - `ReasoningAgent` - Generates differential diagnosis, workup recommendations, and disposition
+- `GuidelinesAgent` - RAG for clinical practice guidelines using sentence-transformers (CPU) + MedGemma synthesis
 - `PrimaCareOrchestrator` - Coordinates all agents, manages model sharing via lazy loading
 
 **Model Wrappers (src/model.py):**
@@ -79,8 +80,12 @@ login(token=UserSecretsClient().get_secret("HF_TOKEN"))
 | `notebooks/04-agentic-workflow.ipynb` | Main competition submission |
 | `notebooks/03-prototype.ipynb` | PrimaCare AI pipeline development |
 | `src/agents/orchestrator.py` | Main entry point - `PrimaCareOrchestrator.run()` |
+| `src/agents/guidelines.py` | GuidelinesAgent with RAG for clinical guidelines |
 | `src/model.py` | MedGemma and MedSigLIP wrappers |
 | `app/demo.py` | Gradio demo application |
+| `data/guidelines/chunks.json` | Clinical guideline chunks for RAG |
+| `data/guidelines/embeddings.npz` | Pre-computed embeddings (generate with scripts/prepare_guidelines.py) |
+| `scripts/prepare_guidelines.py` | One-time script to generate guideline embeddings |
 
 ## Data Classes
 
@@ -89,6 +94,7 @@ The agent pipeline uses these dataclasses to pass structured data:
 - `PatientContext` / `StructuredHPI` (intake.py) - Patient demographics and HPI elements
 - `ImageAnalysis` / `ImagingFinding` (imaging.py) - X-ray findings and classification results
 - `ClinicalRecommendation` / `Diagnosis` / `WorkupItem` (reasoning.py) - Clinical output
+- `GuidelineChunk` / `GuidelinesResult` / `GuidelineRecommendation` (guidelines.py) - RAG results with citations
 - `PrimaCareResult` (orchestrator.py) - Complete pipeline result with `to_report()` method
 
 ## Known Issues to Ignore

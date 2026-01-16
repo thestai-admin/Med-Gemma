@@ -16,6 +16,7 @@ from datetime import datetime
 from .intake import IntakeAgent, PatientContext, StructuredHPI, Urgency
 from .imaging import ImagingAgent, ImageAnalysis, ImageModality
 from .reasoning import ReasoningAgent, ClinicalRecommendation
+from .guidelines import GuidelinesAgent, GuidelinesResult
 
 
 @dataclass
@@ -29,6 +30,9 @@ class PrimaCareResult:
 
     # Clinical reasoning
     recommendation: Optional[ClinicalRecommendation] = None
+
+    # Evidence-based guidelines
+    guidelines_result: Optional[GuidelinesResult] = None
 
     # Metadata
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
@@ -70,6 +74,11 @@ class PrimaCareResult:
             lines.append(self.recommendation.to_summary())
             lines.append("")
 
+        # Evidence-Based Guidelines
+        if self.guidelines_result and self.guidelines_result.recommendations:
+            lines.append(self.guidelines_result.to_report_section())
+            lines.append("")
+
         lines.append("=" * 60)
         lines.append("DISCLAIMER: This is AI-generated content for clinical")
         lines.append("decision support only. All findings require verification")
@@ -97,6 +106,13 @@ class PrimaCareResult:
                 "most_likely": self.recommendation.most_likely_diagnosis if self.recommendation else None,
                 "differential": [d.name for d in (self.recommendation.differential_diagnosis[:5] if self.recommendation else [])],
                 "disposition": self.recommendation.disposition if self.recommendation else None,
+            },
+            "guidelines": {
+                "recommendations": [
+                    {"text": r.recommendation, "evidence": r.evidence_level, "source": r.source_guidelines[0] if r.source_guidelines else None}
+                    for r in (self.guidelines_result.recommendations if self.guidelines_result else [])
+                ],
+                "conditions_matched": self.guidelines_result.conditions_matched if self.guidelines_result else [],
             },
             "processing_steps": self.processing_steps,
         }
@@ -138,6 +154,8 @@ class PrimaCareOrchestrator:
         model=None,
         classifier=None,
         load_classifier: bool = True,
+        enable_guidelines: bool = True,
+        guidelines_path: Optional[str] = None,
     ):
         """
         Initialize the orchestrator.
@@ -146,15 +164,20 @@ class PrimaCareOrchestrator:
             model: Optional shared MedGemma model instance
             classifier: Optional MedSigLIP classifier instance
             load_classifier: Whether to load classifier for imaging
+            enable_guidelines: Whether to enable guidelines RAG agent
+            guidelines_path: Optional path to guidelines data directory
         """
         self._model = model
         self._classifier = classifier
         self._load_classifier = load_classifier
+        self._enable_guidelines = enable_guidelines
+        self._guidelines_path = guidelines_path
 
         # Initialize agents (they will share the model)
         self._intake_agent = None
         self._imaging_agent = None
         self._reasoning_agent = None
+        self._guidelines_agent = None
 
     @property
     def model(self):
@@ -190,6 +213,22 @@ class PrimaCareOrchestrator:
         if self._reasoning_agent is None:
             self._reasoning_agent = ReasoningAgent(model=self.model)
         return self._reasoning_agent
+
+    @property
+    def guidelines_agent(self) -> GuidelinesAgent:
+        """Get or create guidelines agent."""
+        if self._guidelines_agent is None:
+            if self._guidelines_path:
+                from pathlib import Path
+                base_path = Path(self._guidelines_path)
+                self._guidelines_agent = GuidelinesAgent(
+                    model=self.model,
+                    embeddings_path=str(base_path / "embeddings.npz"),
+                    chunks_path=str(base_path / "chunks.json"),
+                )
+            else:
+                self._guidelines_agent = GuidelinesAgent(model=self.model)
+        return self._guidelines_agent
 
     def run(
         self,
@@ -269,6 +308,29 @@ class PrimaCareOrchestrator:
         )
         result.recommendation = recommendation
         result.processing_steps.append("reasoning_completed")
+
+        # Step 4: Evidence-based guidelines (if enabled)
+        if self._enable_guidelines and result.recommendation:
+            print("Step 4: Retrieving clinical guidelines...")
+            result.processing_steps.append("guidelines_started")
+
+            try:
+                # Get top diagnoses for guideline lookup
+                differential = [
+                    d.name for d in result.recommendation.differential_diagnosis[:3]
+                ]
+
+                guidelines_result = self.guidelines_agent.get_recommendations(
+                    differential_diagnosis=differential,
+                    chief_complaint=chief_complaint,
+                )
+                result.guidelines_result = guidelines_result
+                result.processing_steps.append("guidelines_completed")
+            except Exception as e:
+                print(f"Warning: Guidelines retrieval failed: {e}")
+                result.processing_steps.append("guidelines_failed")
+        else:
+            result.processing_steps.append("guidelines_skipped")
 
         # Determine overall urgency
         result.overall_urgency = self._determine_overall_urgency(result)

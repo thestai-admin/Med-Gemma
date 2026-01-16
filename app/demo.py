@@ -173,10 +173,10 @@ def run_agentic_pipeline(
     image: Optional[Image.Image],
     age: str,
     gender: str,
-) -> str:
+) -> tuple:
     """Run the full agentic diagnostic pipeline."""
     if not chief_complaint.strip():
-        return "Please enter a chief complaint."
+        return "Please enter a chief complaint.", "", ""
 
     orchestrator = get_orchestrator()
 
@@ -195,9 +195,44 @@ def run_agentic_pipeline(
             age=age_int,
             gender=gender_str,
         )
-        return result.to_report()
+
+        # Format guidelines output
+        guidelines_text = ""
+        sources_text = ""
+
+        if result.guidelines_result and result.guidelines_result.recommendations:
+            gr_result = result.guidelines_result
+
+            # Format recommendations
+            guidelines_lines = ["**Evidence-Based Recommendations:**\n"]
+            for i, rec in enumerate(gr_result.recommendations, 1):
+                guidelines_lines.append(f"**{i}. {rec.recommendation}**")
+                if rec.evidence_level:
+                    guidelines_lines.append(f"   Evidence Level: {rec.evidence_level}")
+                if rec.source_guidelines:
+                    guidelines_lines.append(f"   Source: {rec.source_guidelines[0]}")
+                guidelines_lines.append("")
+
+            if gr_result.summary:
+                guidelines_lines.append(f"**Summary:** {gr_result.summary}")
+
+            guidelines_text = "\n".join(guidelines_lines)
+
+            # Format sources
+            if gr_result.retrieved_chunks:
+                sources_lines = ["**Retrieved Guideline Sources:**\n"]
+                seen = set()
+                for chunk in gr_result.retrieved_chunks[:5]:
+                    citation = chunk.to_citation()
+                    if citation not in seen:
+                        sources_lines.append(f"- {citation}")
+                        sources_lines.append(f"  *{chunk.content[:200]}...*\n")
+                        seen.add(citation)
+                sources_text = "\n".join(sources_lines)
+
+        return result.to_report(), guidelines_text, sources_text
     except Exception as e:
-        return f"Error running pipeline: {str(e)}"
+        return f"Error running pipeline: {str(e)}", "", ""
 
 
 def generate_report(
@@ -288,10 +323,11 @@ def create_demo():
                 gr.Markdown("""
                 ### Multi-Agent Diagnostic Support
 
-                This pipeline uses three AI agents working together:
+                This pipeline uses four AI agents working together:
                 1. **Intake Agent** - Structures patient history into HPI format
                 2. **Imaging Agent** - Analyzes chest X-ray (if provided)
                 3. **Reasoning Agent** - Generates differential diagnosis and recommendations
+                4. **Guidelines Agent** - Retrieves evidence-based clinical guidelines (RAG)
                 """)
 
                 with gr.Row():
@@ -328,14 +364,22 @@ def create_demo():
                     with gr.Column(scale=1):
                         agent_output = gr.Textbox(
                             label="Clinical Assessment",
-                            lines=30,
+                            lines=20,
                             show_copy_button=True,
                         )
+                        with gr.Accordion("Evidence-Based Guidelines", open=True):
+                            guidelines_output = gr.Markdown(
+                                label="Guideline Recommendations",
+                            )
+                        with gr.Accordion("Retrieved Sources", open=False):
+                            sources_output = gr.Markdown(
+                                label="Guideline Sources",
+                            )
 
                 agent_btn.click(
                     run_agentic_pipeline,
                     inputs=[agent_complaint, agent_history, agent_image, agent_age, agent_gender],
-                    outputs=[agent_output],
+                    outputs=[agent_output, guidelines_output, sources_output],
                 )
 
                 # Example cases
