@@ -322,7 +322,7 @@ Format your response as:
         )
 
         try:
-            response = self.model.ask(prompt, max_new_tokens=1500)
+            response = self.model.ask(prompt, max_new_tokens=1000)
             result.recommendations = self._parse_recommendations(response)
             result.summary = self._extract_summary(response)
         except Exception as e:

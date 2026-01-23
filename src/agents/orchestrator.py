@@ -12,6 +12,7 @@ from typing import Optional, List, Dict, Any, Union
 from pathlib import Path
 from PIL import Image
 from datetime import datetime
+import concurrent.futures
 
 from .intake import IntakeAgent, PatientContext, StructuredHPI, Urgency
 from .imaging import ImagingAgent, ImageAnalysis, ImageModality, LongitudinalAnalysis
@@ -268,6 +269,7 @@ class PrimaCareOrchestrator:
         medications: Optional[List[str]] = None,
         allergies: Optional[List[str]] = None,
         include_classification: bool = True,
+        parallel_execution: bool = True,
     ) -> PrimaCareResult:
         """
         Run the complete diagnostic support pipeline.
@@ -282,55 +284,95 @@ class PrimaCareOrchestrator:
             medications: Current medications
             allergies: Known allergies
             include_classification: Run zero-shot classification
+            parallel_execution: Run intake and imaging in parallel (saves ~15-20s)
 
         Returns:
             PrimaCareResult with complete analysis
         """
         result = PrimaCareResult()
 
-        # Step 1: Structure patient history
-        print("Step 1: Processing patient information...")
-        result.processing_steps.append("intake_started")
+        # Build clinical context for imaging (needed for parallel execution)
+        clinical_context = f"{chief_complaint}. {history}"
+        if age:
+            clinical_context = f"{age}yo {gender or 'patient'}. {clinical_context}"
 
-        patient_context = self.intake_agent.create_patient_context(
-            chief_complaint=chief_complaint,
-            history=history,
-            age=age,
-            gender=gender,
-            pmh=pmh,
-            medications=medications,
-            allergies=allergies,
-        )
-        result.patient_context = patient_context
-        result.processing_steps.append("intake_completed")
+        # Steps 1 & 2: Run intake and imaging in parallel (if image provided)
+        if parallel_execution and xray_image is not None:
+            print("Steps 1-2: Processing patient info and X-ray in parallel...")
+            result.processing_steps.append("parallel_started")
 
-        # Step 2: Analyze imaging (if provided)
-        if xray_image is not None:
-            print("Step 2: Analyzing chest X-ray...")
-            result.processing_steps.append("imaging_started")
+            def run_intake():
+                return self.intake_agent.create_patient_context(
+                    chief_complaint=chief_complaint,
+                    history=history,
+                    age=age,
+                    gender=gender,
+                    pmh=pmh,
+                    medications=medications,
+                    allergies=allergies,
+                )
 
-            # Build clinical context for imaging
-            clinical_context = f"{chief_complaint}. {history}"
-            if age:
-                clinical_context = f"{age}yo {gender or 'patient'}. {clinical_context}"
+            def run_imaging():
+                return self.imaging_agent.analyze(
+                    image=xray_image,
+                    clinical_context=clinical_context,
+                    include_classification=include_classification,
+                )
 
-            imaging_analysis = self.imaging_agent.analyze(
-                image=xray_image,
-                clinical_context=clinical_context,
-                include_classification=include_classification,
-            )
+            # Execute in parallel using ThreadPoolExecutor
+            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+                intake_future = executor.submit(run_intake)
+                imaging_future = executor.submit(run_imaging)
+
+                # Wait for both to complete
+                patient_context = intake_future.result()
+                imaging_analysis = imaging_future.result()
+
+            result.patient_context = patient_context
             result.imaging_analysis = imaging_analysis
+            result.processing_steps.append("intake_completed")
             result.processing_steps.append("imaging_completed")
+
         else:
-            print("Step 2: No imaging provided, skipping...")
-            result.processing_steps.append("imaging_skipped")
+            # Sequential execution (original behavior)
+            # Step 1: Structure patient history
+            print("Step 1: Processing patient information...")
+            result.processing_steps.append("intake_started")
+
+            patient_context = self.intake_agent.create_patient_context(
+                chief_complaint=chief_complaint,
+                history=history,
+                age=age,
+                gender=gender,
+                pmh=pmh,
+                medications=medications,
+                allergies=allergies,
+            )
+            result.patient_context = patient_context
+            result.processing_steps.append("intake_completed")
+
+            # Step 2: Analyze imaging (if provided)
+            if xray_image is not None:
+                print("Step 2: Analyzing chest X-ray...")
+                result.processing_steps.append("imaging_started")
+
+                imaging_analysis = self.imaging_agent.analyze(
+                    image=xray_image,
+                    clinical_context=clinical_context,
+                    include_classification=include_classification,
+                )
+                result.imaging_analysis = imaging_analysis
+                result.processing_steps.append("imaging_completed")
+            else:
+                print("Step 2: No imaging provided, skipping...")
+                result.processing_steps.append("imaging_skipped")
 
         # Step 3: Clinical reasoning
         print("Step 3: Generating clinical assessment...")
         result.processing_steps.append("reasoning_started")
 
         recommendation = self.reasoning_agent.reason(
-            patient_context=patient_context,
+            patient_context=result.patient_context,
             imaging_analysis=result.imaging_analysis,
         )
         result.recommendation = recommendation

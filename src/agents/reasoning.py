@@ -242,7 +242,7 @@ Consider:
             classification_context=classification_context,
         )
 
-        response = self.model.ask(prompt, max_new_tokens=2500)
+        response = self.model.ask(prompt, max_new_tokens=1500)
 
         # Parse response
         recommendation = self._parse_recommendation(response)

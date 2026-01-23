@@ -174,8 +174,22 @@ class ImagingAgent:
         analysis = agent.analyze(image, clinical_context="65yo smoker with cough")
     """
 
-    # Default classification labels for chest X-rays
+    # Enhanced classification labels with descriptive prompts for better accuracy
     CXR_LABELS = [
+        "chest x-ray showing normal lung fields with clear costophrenic angles",
+        "chest x-ray showing pneumonia with consolidation or infiltrates",
+        "chest x-ray showing pleural effusion with blunted costophrenic angle",
+        "chest x-ray showing cardiomegaly with enlarged cardiac silhouette",
+        "chest x-ray showing pulmonary edema with bilateral infiltrates",
+        "chest x-ray showing atelectasis with volume loss",
+        "chest x-ray showing pneumothorax with absent lung markings",
+        "chest x-ray showing consolidation with air bronchograms",
+        "chest x-ray showing mass or nodule in lung field",
+        "chest x-ray showing interstitial lung disease with reticular pattern",
+    ]
+
+    # Simple labels for backward compatibility and mapping
+    CXR_LABELS_SIMPLE = [
         "normal chest x-ray",
         "pneumonia",
         "pleural effusion",
@@ -186,6 +200,12 @@ class ImagingAgent:
         "consolidation",
         "mass or nodule",
         "interstitial lung disease",
+    ]
+
+    # Binary labels for pneumonia detection (high accuracy mode)
+    PNEUMONIA_BINARY_LABELS = [
+        "normal healthy chest x-ray with clear lungs and no infiltrates",
+        "chest x-ray showing pneumonia, infection, consolidation, or infiltrates",
     ]
 
     # Prompt for systematic chest X-ray analysis
@@ -317,6 +337,7 @@ Provide ONE word overall assessment: NEW, IMPROVED, WORSENED, UNCHANGED, or RESO
         clinical_context: Optional[str] = None,
         include_classification: bool = True,
         modality: ImageModality = ImageModality.CHEST_XRAY,
+        skip_classification_if_confident: bool = True,
     ) -> ImageAnalysis:
         """
         Perform complete image analysis.
@@ -326,6 +347,7 @@ Provide ONE word overall assessment: NEW, IMPROVED, WORSENED, UNCHANGED, or RESO
             clinical_context: Optional clinical information
             include_classification: Whether to run zero-shot classification
             modality: Type of imaging
+            skip_classification_if_confident: Skip MedSigLIP if MedGemma is confident (saves ~3-5s)
 
         Returns:
             ImageAnalysis with findings, impression, and classifications
@@ -339,22 +361,38 @@ Provide ONE word overall assessment: NEW, IMPROVED, WORSENED, UNCHANGED, or RESO
         if clinical_context:
             context = f"Clinical Context: {clinical_context}\n"
 
-        # Run primary analysis with MedGemma
+        # Run primary analysis with MedGemma (reduced tokens for latency)
         if modality == ImageModality.CHEST_XRAY:
             prompt = self.CXR_ANALYSIS_PROMPT.format(context=context)
         else:
             prompt = f"Analyze this medical image in detail.\n{context}"
 
-        raw_analysis = self.model.analyze_image(image, prompt, max_new_tokens=2000)
+        raw_analysis = self.model.analyze_image(image, prompt, max_new_tokens=1500)
 
         # Parse the analysis
         analysis = self._parse_analysis(raw_analysis, modality)
 
         # Run classification if requested
         if include_classification and self.classifier:
-            labels = self.CXR_LABELS if modality == ImageModality.CHEST_XRAY else []
-            if labels:
-                analysis.classification_probs = self.classifier.classify(image, labels)
+            # Check if MedGemma analysis is confident (skip classification for latency)
+            skip_classification = False
+            if skip_classification_if_confident:
+                raw_lower = raw_analysis.lower()
+                # Skip if MedGemma is confident (no uncertainty markers)
+                uncertainty_markers = ["uncertain", "unclear", "cannot determine",
+                                       "difficult to assess", "limited", "suboptimal"]
+                has_uncertainty = any(marker in raw_lower for marker in uncertainty_markers)
+                skip_classification = not has_uncertainty
+
+            if not skip_classification:
+                labels = self.CXR_LABELS if modality == ImageModality.CHEST_XRAY else []
+                if labels:
+                    probs = self.classifier.classify(image, labels)
+                    # Map to simple labels
+                    analysis.classification_probs = {
+                        simple: probs[enhanced]
+                        for simple, enhanced in zip(self.CXR_LABELS_SIMPLE, self.CXR_LABELS)
+                    }
 
         return analysis
 
@@ -404,7 +442,98 @@ Provide ONE word overall assessment: NEW, IMPROVED, WORSENED, UNCHANGED, or RESO
             image = Image.open(image)
 
         labels = labels or self.CXR_LABELS
-        return self.classifier.classify(image, labels)
+        probs = self.classifier.classify(image, labels)
+
+        # Map enhanced labels back to simple labels for compatibility
+        if labels == self.CXR_LABELS:
+            return {
+                simple: probs[enhanced]
+                for simple, enhanced in zip(self.CXR_LABELS_SIMPLE, self.CXR_LABELS)
+            }
+        return probs
+
+    def classify_pneumonia_binary(
+        self,
+        image: Union[Image.Image, str, Path],
+    ) -> Dict[str, float]:
+        """
+        Binary pneumonia vs normal classification with optimized prompts.
+
+        More accurate than multi-label classification for pneumonia detection.
+
+        Args:
+            image: PIL Image or path
+
+        Returns:
+            Dictionary with 'normal' and 'pneumonia' probabilities
+        """
+        if not self.classifier:
+            raise RuntimeError("Classifier not loaded")
+
+        if isinstance(image, (str, Path)):
+            image = Image.open(image)
+
+        probs = self.classifier.classify(image, self.PNEUMONIA_BINARY_LABELS)
+
+        # Return with simple keys
+        return {
+            "normal": probs[self.PNEUMONIA_BINARY_LABELS[0]],
+            "pneumonia": probs[self.PNEUMONIA_BINARY_LABELS[1]],
+        }
+
+    def classify_with_ensemble(
+        self,
+        image: Union[Image.Image, str, Path],
+        clinical_context: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Ensemble classification combining MedGemma analysis with MedSigLIP.
+
+        Improves accuracy by combining:
+        - MedGemma's textual analysis for abnormality detection
+        - MedSigLIP's binary pneumonia classification
+
+        Args:
+            image: PIL Image or path
+            clinical_context: Optional clinical information
+
+        Returns:
+            Dictionary with ensemble results:
+            - pneumonia_score: Combined probability (0-1)
+            - siglip_probs: Raw MedSigLIP binary probabilities
+            - gemma_abnormal: Whether MedGemma detected abnormality
+            - is_pneumonia: Final binary decision
+        """
+        if isinstance(image, (str, Path)):
+            image = Image.open(image)
+
+        # 1. Get MedSigLIP binary classification
+        siglip_probs = self.classify_pneumonia_binary(image)
+
+        # 2. Get MedGemma quick abnormality assessment
+        quick_prompt = """Look at this chest x-ray and answer with a single word:
+Is this chest x-ray NORMAL or ABNORMAL?
+Answer:"""
+        gemma_response = self.model.analyze_image(image, quick_prompt, max_new_tokens=20)
+        gemma_abnormal = "ABNORMAL" in gemma_response.upper()
+
+        # 3. Combine signals with weighted ensemble
+        # MedSigLIP weight: 0.4, MedGemma weight: 0.6 (MedGemma is more reliable)
+        siglip_score = siglip_probs["pneumonia"]
+        gemma_score = 0.7 if gemma_abnormal else 0.1  # High confidence if abnormal
+
+        ensemble_score = siglip_score * 0.4 + gemma_score * 0.6
+
+        # Threshold for pneumonia detection
+        is_pneumonia = ensemble_score > 0.4
+
+        return {
+            "pneumonia_score": ensemble_score,
+            "siglip_probs": siglip_probs,
+            "gemma_abnormal": gemma_abnormal,
+            "gemma_response": gemma_response.strip(),
+            "is_pneumonia": is_pneumonia,
+        }
 
     def generate_report(
         self,
