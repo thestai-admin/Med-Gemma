@@ -33,15 +33,31 @@ Usage:
 """
 
 from .intake import IntakeAgent
-from .imaging import ImagingAgent
+from .imaging import ImagingAgent, LongitudinalAnalysis, ChangeStatus
 from .reasoning import ReasoningAgent
 from .guidelines import GuidelinesAgent
 from .orchestrator import PrimaCareOrchestrator
+from .volumetric import VolumetricImagingAgent, VolumetricAnalysis, VolumetricModality
+from .ehr_navigator import EHRNavigatorAgent, EHRQueryResult
+from .pathology import PathologyAgent, PathologyAnalysis, TissueType
 
 __all__ = [
+    # Core agents
     "IntakeAgent",
     "ImagingAgent",
     "ReasoningAgent",
     "GuidelinesAgent",
     "PrimaCareOrchestrator",
+    # New feature agents
+    "VolumetricImagingAgent",
+    "EHRNavigatorAgent",
+    "PathologyAgent",
+    # Data classes
+    "LongitudinalAnalysis",
+    "ChangeStatus",
+    "VolumetricAnalysis",
+    "VolumetricModality",
+    "EHRQueryResult",
+    "PathologyAnalysis",
+    "TissueType",
 ]

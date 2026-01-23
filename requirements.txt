@@ -31,9 +31,23 @@ python-dotenv>=1.0.0
 # Testing
 pytest>=7.0.0
 
+# Guidelines RAG
+sentence-transformers>=2.2.0
+
+# EHR Navigator (LangGraph workflow)
+langgraph>=0.0.20
+langchain-core>=0.1.0
+
 # Optional: Audio processing (for MedASR)
 # librosa>=0.10.0
 # soundfile>=0.12.0
 
 # Optional: For quantization/efficient inference
 # bitsandbytes>=0.41.0
+
+# Optional: WSI/Pathology analysis
+# openslide-python>=1.3.0
+# Note: Also requires system library: apt-get install openslide-tools
+
+# Optional: DICOM support for volumetric imaging
+# pydicom>=2.4.0

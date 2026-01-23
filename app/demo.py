@@ -70,6 +70,141 @@ def get_orchestrator():
 
 
 # =============================================================================
+# New Feature Functions
+# =============================================================================
+
+def run_longitudinal_comparison(
+    prior_image: Image.Image,
+    current_image: Image.Image,
+    clinical_context: str,
+    interval: str,
+) -> str:
+    """Run longitudinal CXR comparison."""
+    if prior_image is None or current_image is None:
+        return "Please upload both prior and current images."
+
+    orchestrator = get_orchestrator()
+
+    try:
+        result = orchestrator.run_longitudinal(
+            prior_image=prior_image,
+            current_image=current_image,
+            clinical_context=clinical_context if clinical_context.strip() else None,
+            interval=interval if interval.strip() else None,
+        )
+        return result.to_prompt_context()
+    except Exception as e:
+        return f"Error running longitudinal comparison: {str(e)}"
+
+
+def run_volumetric_analysis(
+    ct_files,
+    modality: str,
+    body_region: str,
+    clinical_context: str,
+) -> str:
+    """Run volumetric CT/MRI analysis."""
+    if ct_files is None or len(ct_files) == 0:
+        return "Please upload CT/MRI slice images."
+
+    orchestrator = get_orchestrator()
+
+    try:
+        from src.agents.volumetric import VolumetricModality
+
+        # Load images from uploaded files
+        images = []
+        for f in ct_files:
+            img = Image.open(f.name)
+            images.append(img)
+
+        # Map modality string to enum
+        mod_enum = VolumetricModality.CT if modality == "CT" else VolumetricModality.MRI
+
+        result = orchestrator.run_volumetric(
+            volume=images,
+            modality=mod_enum,
+            clinical_context=clinical_context if clinical_context.strip() else None,
+            body_region=body_region.lower(),
+            num_slices=min(6, len(images)),
+        )
+        return result.to_prompt_context()
+    except Exception as e:
+        return f"Error running volumetric analysis: {str(e)}"
+
+
+def run_ehr_query(
+    question: str,
+    fhir_json: str,
+) -> tuple:
+    """Query EHR data."""
+    if not question.strip():
+        return "Please enter a question.", ""
+
+    if not fhir_json.strip():
+        return "Please provide FHIR data (JSON format).", ""
+
+    orchestrator = get_orchestrator()
+
+    try:
+        import json
+        fhir_bundle = json.loads(fhir_json)
+
+        result = orchestrator.query_ehr(
+            question=question,
+            fhir_bundle=fhir_bundle,
+        )
+
+        # Get patient summary
+        summary = orchestrator.get_ehr_patient_summary(fhir_bundle)
+
+        return result.to_prompt_context(), summary
+    except json.JSONDecodeError:
+        return "Error: Invalid JSON format for FHIR data.", ""
+    except Exception as e:
+        return f"Error querying EHR: {str(e)}", ""
+
+
+def run_pathology_analysis(
+    image: Image.Image,
+    tissue_type: str,
+    clinical_context: str,
+) -> str:
+    """Run pathology image analysis."""
+    if image is None:
+        return "Please upload a pathology image."
+
+    orchestrator = get_orchestrator()
+
+    try:
+        from src.agents.pathology import TissueType
+
+        # Map tissue type string to enum
+        tissue_map = {
+            "Breast": TissueType.BREAST,
+            "Lung": TissueType.LUNG,
+            "Colon": TissueType.COLON,
+            "Prostate": TissueType.PROSTATE,
+            "Skin": TissueType.SKIN,
+            "Liver": TissueType.LIVER,
+            "Kidney": TissueType.KIDNEY,
+            "Lymph Node": TissueType.LYMPH_NODE,
+            "General": TissueType.GENERAL,
+        }
+        tissue_enum = tissue_map.get(tissue_type, TissueType.GENERAL)
+
+        result = orchestrator.run_pathology(
+            image_or_wsi=image,
+            tissue_type=tissue_enum,
+            clinical_context=clinical_context if clinical_context.strip() else None,
+            is_wsi=False,
+        )
+        return result.to_prompt_context()
+    except Exception as e:
+        return f"Error running pathology analysis: {str(e)}"
+
+
+# =============================================================================
 # Analysis Functions
 # =============================================================================
 
@@ -543,6 +678,200 @@ def create_demo():
                         ["What are the signs of tension pneumothorax?"],
                     ],
                     inputs=[question_input],
+                )
+
+            # Tab 5: Longitudinal CXR Comparison (NEW)
+            with gr.TabItem("Longitudinal CXR"):
+                gr.Markdown("""
+                ### Longitudinal Chest X-ray Comparison
+
+                Compare two chest X-rays over time to assess disease progression.
+                Upload a prior study and a current study to see interval changes.
+                """)
+
+                with gr.Row():
+                    with gr.Column(scale=1):
+                        prior_image = gr.Image(
+                            label="Prior Study",
+                            type="pil",
+                            height=250,
+                        )
+                        current_image = gr.Image(
+                            label="Current Study",
+                            type="pil",
+                            height=250,
+                        )
+                        with gr.Row():
+                            long_context = gr.Textbox(
+                                label="Clinical Context",
+                                placeholder="e.g., 65yo smoker with cough",
+                                lines=2,
+                            )
+                            long_interval = gr.Textbox(
+                                label="Interval",
+                                placeholder="e.g., 6 months",
+                            )
+                        compare_btn = gr.Button("Compare Studies", variant="primary", size="lg")
+
+                    with gr.Column(scale=1):
+                        longitudinal_output = gr.Textbox(
+                            label="Comparison Results",
+                            lines=20,
+                            show_copy_button=True,
+                        )
+
+                compare_btn.click(
+                    run_longitudinal_comparison,
+                    inputs=[prior_image, current_image, long_context, long_interval],
+                    outputs=[longitudinal_output],
+                )
+
+            # Tab 6: CT/MRI Analysis (NEW)
+            with gr.TabItem("CT/MRI Analysis"):
+                gr.Markdown("""
+                ### Volumetric CT/MRI Analysis
+
+                Analyze CT or MRI studies by uploading individual slice images.
+                The system will sample representative slices and synthesize findings.
+
+                **Note:** Upload up to 20 slice images (PNG/JPG). The system will
+                automatically sample 6 representative slices for analysis.
+                """)
+
+                with gr.Row():
+                    with gr.Column(scale=1):
+                        ct_upload = gr.File(
+                            label="Upload CT/MRI Slices",
+                            file_count="multiple",
+                            file_types=["image"],
+                        )
+                        with gr.Row():
+                            modality_select = gr.Dropdown(
+                                choices=["CT", "MRI"],
+                                value="CT",
+                                label="Modality",
+                            )
+                            region_select = gr.Dropdown(
+                                choices=["Chest", "Abdomen", "Head"],
+                                value="Chest",
+                                label="Body Region",
+                            )
+                        vol_context = gr.Textbox(
+                            label="Clinical Context",
+                            placeholder="e.g., 55yo with abdominal pain",
+                            lines=2,
+                        )
+                        vol_btn = gr.Button("Analyze Volume", variant="primary", size="lg")
+
+                    with gr.Column(scale=1):
+                        vol_output = gr.Textbox(
+                            label="Volumetric Analysis",
+                            lines=20,
+                            show_copy_button=True,
+                        )
+
+                vol_btn.click(
+                    run_volumetric_analysis,
+                    inputs=[ct_upload, modality_select, region_select, vol_context],
+                    outputs=[vol_output],
+                )
+
+            # Tab 7: EHR Navigator (NEW)
+            with gr.TabItem("EHR Navigator"):
+                gr.Markdown("""
+                ### EHR/FHIR Navigator
+
+                Query patient EHR data using natural language questions.
+                Paste FHIR-formatted JSON data to analyze patient records.
+                """)
+
+                with gr.Row():
+                    with gr.Column(scale=1):
+                        ehr_question = gr.Textbox(
+                            label="Ask about patient's EHR",
+                            placeholder="e.g., What medications is the patient taking?",
+                            lines=2,
+                        )
+                        ehr_json = gr.Textbox(
+                            label="FHIR Data (JSON)",
+                            placeholder='Paste FHIR Bundle JSON here...\n{\n  "resourceType": "Bundle",\n  "entry": [...]\n}',
+                            lines=10,
+                        )
+                        ehr_btn = gr.Button("Query EHR", variant="primary", size="lg")
+
+                    with gr.Column(scale=1):
+                        ehr_output = gr.Textbox(
+                            label="Query Results",
+                            lines=12,
+                            show_copy_button=True,
+                        )
+                        ehr_summary = gr.Textbox(
+                            label="Patient Summary",
+                            lines=8,
+                            show_copy_button=True,
+                        )
+
+                ehr_btn.click(
+                    run_ehr_query,
+                    inputs=[ehr_question, ehr_json],
+                    outputs=[ehr_output, ehr_summary],
+                )
+
+                # Example FHIR query
+                gr.Examples(
+                    examples=[
+                        ["What are the patient's active conditions?"],
+                        ["List all current medications."],
+                        ["Does the patient have any allergies?"],
+                        ["What was the most recent lab result?"],
+                    ],
+                    inputs=[ehr_question],
+                )
+
+            # Tab 8: Pathology Analysis (NEW)
+            with gr.TabItem("Pathology"):
+                gr.Markdown("""
+                ### Histopathology Analysis
+
+                Analyze pathology images for microscopic findings.
+                Supports H&E stained tissue images from various organ systems.
+
+                **Note:** For whole slide images (.svs, .ndpi), the system requires
+                OpenSlide. For demo purposes, upload pre-extracted tiles or
+                low-resolution overview images.
+                """)
+
+                with gr.Row():
+                    with gr.Column(scale=1):
+                        path_image = gr.Image(
+                            label="Upload Pathology Image",
+                            type="pil",
+                            height=300,
+                        )
+                        tissue_type = gr.Dropdown(
+                            choices=["Breast", "Lung", "Colon", "Prostate", "Skin",
+                                    "Liver", "Kidney", "Lymph Node", "General"],
+                            value="General",
+                            label="Tissue Type",
+                        )
+                        path_context = gr.Textbox(
+                            label="Clinical Context",
+                            placeholder="e.g., Breast biopsy, suspicious mass on imaging",
+                            lines=2,
+                        )
+                        path_btn = gr.Button("Analyze Pathology", variant="primary", size="lg")
+
+                    with gr.Column(scale=1):
+                        path_output = gr.Textbox(
+                            label="Pathology Analysis",
+                            lines=20,
+                            show_copy_button=True,
+                        )
+
+                path_btn.click(
+                    run_pathology_analysis,
+                    inputs=[path_image, tissue_type, path_context],
+                    outputs=[path_output],
                 )
 
         gr.Markdown("""

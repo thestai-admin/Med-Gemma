@@ -14,9 +14,12 @@ from PIL import Image
 from datetime import datetime
 
 from .intake import IntakeAgent, PatientContext, StructuredHPI, Urgency
-from .imaging import ImagingAgent, ImageAnalysis, ImageModality
+from .imaging import ImagingAgent, ImageAnalysis, ImageModality, LongitudinalAnalysis
 from .reasoning import ReasoningAgent, ClinicalRecommendation
 from .guidelines import GuidelinesAgent, GuidelinesResult
+from .volumetric import VolumetricImagingAgent, VolumetricAnalysis, VolumetricModality
+from .ehr_navigator import EHRNavigatorAgent, EHRQueryResult
+from .pathology import PathologyAgent, PathologyAnalysis, TissueType
 
 
 @dataclass
@@ -178,6 +181,9 @@ class PrimaCareOrchestrator:
         self._imaging_agent = None
         self._reasoning_agent = None
         self._guidelines_agent = None
+        self._volumetric_agent = None
+        self._ehr_navigator_agent = None
+        self._pathology_agent = None
 
     @property
     def model(self):
@@ -229,6 +235,27 @@ class PrimaCareOrchestrator:
             else:
                 self._guidelines_agent = GuidelinesAgent(model=self.model)
         return self._guidelines_agent
+
+    @property
+    def volumetric_agent(self) -> VolumetricImagingAgent:
+        """Get or create volumetric imaging agent."""
+        if self._volumetric_agent is None:
+            self._volumetric_agent = VolumetricImagingAgent(model=self.model)
+        return self._volumetric_agent
+
+    @property
+    def ehr_navigator_agent(self) -> EHRNavigatorAgent:
+        """Get or create EHR navigator agent."""
+        if self._ehr_navigator_agent is None:
+            self._ehr_navigator_agent = EHRNavigatorAgent(model=self.model)
+        return self._ehr_navigator_agent
+
+    @property
+    def pathology_agent(self) -> PathologyAgent:
+        """Get or create pathology agent."""
+        if self._pathology_agent is None:
+            self._pathology_agent = PathologyAgent(model=self.model)
+        return self._pathology_agent
 
     def run(
         self,
@@ -444,6 +471,140 @@ class PrimaCareOrchestrator:
         if urgencies:
             return max(urgencies, key=lambda u: priority[u])
         return Urgency.ROUTINE
+
+    # =========================================================================
+    # New Feature Methods
+    # =========================================================================
+
+    def run_longitudinal(
+        self,
+        prior_image: Union[Image.Image, str, Path],
+        current_image: Union[Image.Image, str, Path],
+        clinical_context: Optional[str] = None,
+        interval: Optional[str] = None,
+    ) -> LongitudinalAnalysis:
+        """
+        Compare two chest X-rays over time.
+
+        Args:
+            prior_image: Prior/baseline chest X-ray
+            current_image: Current/follow-up chest X-ray
+            clinical_context: Clinical information
+            interval: Time between studies (e.g., "6 months")
+
+        Returns:
+            LongitudinalAnalysis with comparison results
+        """
+        print("Running longitudinal CXR comparison...")
+        return self.imaging_agent.analyze_longitudinal(
+            prior_image=prior_image,
+            current_image=current_image,
+            clinical_context=clinical_context,
+            interval=interval,
+        )
+
+    def run_volumetric(
+        self,
+        volume: Union[List[Image.Image], List[str], List[Path]],
+        modality: VolumetricModality = VolumetricModality.CT,
+        clinical_context: Optional[str] = None,
+        body_region: str = "chest",
+        num_slices: int = 6,
+    ) -> VolumetricAnalysis:
+        """
+        Analyze a volumetric CT/MRI study.
+
+        Args:
+            volume: List of slice images or paths
+            modality: CT or MRI
+            clinical_context: Clinical information
+            body_region: Body region for anatomical labeling
+            num_slices: Number of slices to analyze (max 6)
+
+        Returns:
+            VolumetricAnalysis with findings
+        """
+        print(f"Running volumetric {modality.value.upper()} analysis...")
+        return self.volumetric_agent.analyze(
+            volume=volume,
+            modality=modality,
+            clinical_context=clinical_context,
+            body_region=body_region,
+            num_slices=num_slices,
+        )
+
+    def query_ehr(
+        self,
+        question: str,
+        fhir_bundle: Dict[str, Any],
+    ) -> EHRQueryResult:
+        """
+        Query patient EHR data using natural language.
+
+        Args:
+            question: Natural language clinical question
+            fhir_bundle: FHIR Bundle containing patient data
+
+        Returns:
+            EHRQueryResult with answer and supporting facts
+        """
+        print("Querying EHR data...")
+        return self.ehr_navigator_agent.query(
+            question=question,
+            fhir_bundle=fhir_bundle,
+        )
+
+    def run_pathology(
+        self,
+        image_or_wsi: Union[Image.Image, str, Path],
+        tissue_type: TissueType = TissueType.GENERAL,
+        clinical_context: Optional[str] = None,
+        is_wsi: bool = False,
+        num_tiles: int = 4,
+    ) -> PathologyAnalysis:
+        """
+        Analyze a pathology image or whole slide image.
+
+        Args:
+            image_or_wsi: PIL Image, image path, or WSI path
+            tissue_type: Type of tissue
+            clinical_context: Clinical information
+            is_wsi: Whether input is a whole slide image
+            num_tiles: Number of tiles for WSI analysis (max 4)
+
+        Returns:
+            PathologyAnalysis with findings
+        """
+        print(f"Running pathology analysis ({tissue_type.value})...")
+
+        if is_wsi:
+            return self.pathology_agent.analyze_wsi(
+                wsi_path=image_or_wsi,
+                tissue_type=tissue_type,
+                clinical_context=clinical_context,
+                num_tiles=num_tiles,
+            )
+        else:
+            return self.pathology_agent.analyze_image(
+                image=image_or_wsi,
+                tissue_type=tissue_type,
+                clinical_context=clinical_context,
+            )
+
+    def get_ehr_patient_summary(
+        self,
+        fhir_bundle: Dict[str, Any],
+    ) -> str:
+        """
+        Get a quick patient summary from FHIR bundle.
+
+        Args:
+            fhir_bundle: FHIR Bundle containing patient data
+
+        Returns:
+            Formatted patient summary string
+        """
+        return self.ehr_navigator_agent.get_patient_summary(fhir_bundle)
 
 
 # =============================================================================

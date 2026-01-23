@@ -33,6 +33,15 @@ class FindingSeverity(Enum):
     CRITICAL = "critical"
 
 
+class ChangeStatus(Enum):
+    """Change status for longitudinal comparison."""
+    NEW = "new"
+    IMPROVED = "improved"
+    WORSENED = "worsened"
+    UNCHANGED = "unchanged"
+    RESOLVED = "resolved"
+
+
 @dataclass
 class ImagingFinding:
     """Individual finding from image analysis."""
@@ -90,6 +99,68 @@ class ImageAnalysis:
             reverse=True
         )
         return sorted_probs[:n]
+
+
+@dataclass
+class LongitudinalAnalysis:
+    """Analysis comparing two images over time (prior vs current)."""
+    prior_findings: str
+    current_findings: str
+    comparison: str
+    change_summary: ChangeStatus
+    interval: Optional[str] = None  # Time between studies if known
+    key_changes: List[str] = field(default_factory=list)
+    requires_urgent_review: bool = False
+    raw_prior_analysis: str = ""
+    raw_current_analysis: str = ""
+
+    def to_prompt_context(self) -> str:
+        """Format longitudinal analysis for downstream prompts."""
+        lines = [
+            "**LONGITUDINAL IMAGING COMPARISON**",
+            "",
+        ]
+
+        if self.interval:
+            lines.append(f"**Interval:** {self.interval}")
+
+        lines.extend([
+            "",
+            "**Prior Study Findings:**",
+            self.prior_findings,
+            "",
+            "**Current Study Findings:**",
+            self.current_findings,
+            "",
+            "**Comparison Summary:**",
+            self.comparison,
+            "",
+            f"**Overall Change:** {self.change_summary.value.upper()}",
+        ])
+
+        if self.key_changes:
+            lines.append("")
+            lines.append("**Key Changes:**")
+            for change in self.key_changes:
+                lines.append(f"- {change}")
+
+        if self.requires_urgent_review:
+            lines.append("")
+            lines.append("**⚠️ URGENT: Significant changes requiring immediate attention**")
+
+        return "\n".join(lines)
+
+    def to_report_section(self) -> str:
+        """Generate a report section for longitudinal comparison."""
+        return f"""
+----------------------------------------
+COMPARISON WITH PRIOR STUDY
+----------------------------------------
+{self.comparison}
+
+Change Assessment: {self.change_summary.value.upper()}
+{"URGENT REVIEW RECOMMENDED" if self.requires_urgent_review else ""}
+"""
 
 
 class ImagingAgent:
@@ -156,6 +227,59 @@ For each finding, provide:
 3. Severity (normal/mild/moderate/severe)
 
 If the image appears normal, state "No acute abnormality identified."
+"""
+
+    # Prompt for longitudinal comparison
+    LONGITUDINAL_PRIOR_PROMPT = """Analyze this PRIOR chest X-ray study.
+
+{context}
+
+Provide a concise summary of findings that can be compared to a follow-up study:
+1. Key findings (abnormalities, their location, and severity)
+2. Overall lung volumes and cardiac size
+3. Any lines, tubes, or devices present
+4. Technical quality of the study
+"""
+
+    LONGITUDINAL_CURRENT_PROMPT = """Analyze this CURRENT chest X-ray study.
+
+{context}
+
+Provide a concise summary of findings that can be compared to a prior study:
+1. Key findings (abnormalities, their location, and severity)
+2. Overall lung volumes and cardiac size
+3. Any lines, tubes, or devices present
+4. Technical quality of the study
+"""
+
+    LONGITUDINAL_COMPARISON_PROMPT = """Compare these two chest X-ray studies over time.
+
+**PRIOR STUDY FINDINGS:**
+{prior_findings}
+
+**CURRENT STUDY FINDINGS:**
+{current_findings}
+
+{context}
+
+Provide a detailed comparison:
+
+**COMPARISON:**
+Describe interval changes in:
+1. Any new findings not present on the prior study
+2. Findings that have resolved since the prior study
+3. Findings that have improved (decreased size, density, or extent)
+4. Findings that have worsened (increased size, density, or extent)
+5. Findings that remain unchanged
+
+**KEY CHANGES:**
+List the most clinically significant changes (bullet points)
+
+**CHANGE SUMMARY:**
+Provide ONE word overall assessment: NEW, IMPROVED, WORSENED, UNCHANGED, or RESOLVED
+
+**URGENT:**
+[YES/NO] - Are there findings requiring immediate attention?
 """
 
     def __init__(self, model=None, classifier=None, load_classifier: bool = True):
@@ -434,3 +558,123 @@ Format as a formal radiology report with:
                     ))
 
         return findings
+
+    def analyze_longitudinal(
+        self,
+        prior_image: Union[Image.Image, str, Path],
+        current_image: Union[Image.Image, str, Path],
+        clinical_context: Optional[str] = None,
+        interval: Optional[str] = None,
+    ) -> LongitudinalAnalysis:
+        """
+        Compare two chest X-rays over time to assess disease progression.
+
+        IMPORTANT: Processes images sequentially to avoid GPU OOM on T4.
+
+        Args:
+            prior_image: Prior/baseline chest X-ray
+            current_image: Current/follow-up chest X-ray
+            clinical_context: Optional clinical information
+            interval: Time between studies (e.g., "6 months", "2 weeks")
+
+        Returns:
+            LongitudinalAnalysis with comparison results
+        """
+        import torch
+
+        # Load images if paths provided
+        if isinstance(prior_image, (str, Path)):
+            prior_image = Image.open(prior_image)
+        if isinstance(current_image, (str, Path)):
+            current_image = Image.open(current_image)
+
+        # Build context for prompts
+        context = ""
+        if clinical_context:
+            context = f"Clinical Context: {clinical_context}"
+        if interval:
+            context += f"\nInterval since prior study: {interval}"
+
+        # Step 1: Analyze PRIOR study
+        print("Analyzing prior study...")
+        prior_prompt = self.LONGITUDINAL_PRIOR_PROMPT.format(context=context)
+        prior_findings = self.model.analyze_image(prior_image, prior_prompt, max_new_tokens=1000)
+
+        # Clear GPU cache between analyses (critical for T4 16GB)
+        torch.cuda.empty_cache()
+
+        # Step 2: Analyze CURRENT study
+        print("Analyzing current study...")
+        current_prompt = self.LONGITUDINAL_CURRENT_PROMPT.format(context=context)
+        current_findings = self.model.analyze_image(current_image, current_prompt, max_new_tokens=1000)
+
+        # Clear GPU cache before synthesis
+        torch.cuda.empty_cache()
+
+        # Step 3: Generate comparison (text-only, no images needed)
+        print("Generating comparison...")
+        comparison_prompt = self.LONGITUDINAL_COMPARISON_PROMPT.format(
+            prior_findings=prior_findings,
+            current_findings=current_findings,
+            context=context,
+        )
+        comparison_response = self.model.ask(comparison_prompt, max_new_tokens=1500)
+
+        # Parse the comparison response
+        return self._parse_longitudinal_comparison(
+            prior_findings=prior_findings,
+            current_findings=current_findings,
+            comparison_response=comparison_response,
+            interval=interval,
+        )
+
+    def _parse_longitudinal_comparison(
+        self,
+        prior_findings: str,
+        current_findings: str,
+        comparison_response: str,
+        interval: Optional[str] = None,
+    ) -> LongitudinalAnalysis:
+        """Parse longitudinal comparison response into structured result."""
+        sections = self._extract_sections(comparison_response)
+
+        # Extract comparison text
+        comparison = sections.get("COMPARISON", comparison_response)
+
+        # Extract key changes
+        key_changes = []
+        key_changes_text = sections.get("KEY CHANGES", "")
+        for line in key_changes_text.split("\n"):
+            line = line.strip()
+            if line and (line.startswith("-") or line.startswith("•") or line[0].isdigit()):
+                content = line.lstrip("0123456789.-•) ").strip()
+                if content:
+                    key_changes.append(content)
+
+        # Extract change summary
+        change_summary_text = sections.get("CHANGE SUMMARY", "").upper().strip()
+        change_summary = ChangeStatus.UNCHANGED  # Default
+        if "NEW" in change_summary_text:
+            change_summary = ChangeStatus.NEW
+        elif "IMPROVED" in change_summary_text:
+            change_summary = ChangeStatus.IMPROVED
+        elif "WORSENED" in change_summary_text or "WORSE" in change_summary_text:
+            change_summary = ChangeStatus.WORSENED
+        elif "RESOLVED" in change_summary_text:
+            change_summary = ChangeStatus.RESOLVED
+
+        # Check urgency
+        urgent_text = sections.get("URGENT", "").upper()
+        requires_urgent_review = "YES" in urgent_text
+
+        return LongitudinalAnalysis(
+            prior_findings=prior_findings,
+            current_findings=current_findings,
+            comparison=comparison,
+            change_summary=change_summary,
+            interval=interval,
+            key_changes=key_changes,
+            requires_urgent_review=requires_urgent_review,
+            raw_prior_analysis=prior_findings,
+            raw_current_analysis=current_findings,
+        )
