@@ -122,11 +122,15 @@ processor = AutoProcessor.from_pretrained("google/medgemma-1.5-4b-it")
 
 ### Performance
 
-Tested on Kaggle Tesla T4 GPU:
+Tested on Kaggle Tesla T4 GPU (from `04-agentic-workflow.ipynb` benchmark/evaluation cells):
 - Model loading: ~2-3 minutes
 - Single X-ray analysis: ~10-15 seconds
-- Full consultation (all agents): ~45-60 seconds
+- Full consultation (all agents): ~111.0 seconds end-to-end
 - Memory usage: ~8GB VRAM
+
+**Classification Evaluation (pneumonia task):**
+- Multi-label setup (10 labels): Accuracy 53.0%, F1 0.175
+- Binary setup (normal vs pneumonia): Accuracy 76.0%, F1 0.803
 
 ### Deployment
 
@@ -151,6 +155,7 @@ The system includes a **Gradio interface** for interactive demonstrations:
 - Zero-shot classification provides immediate triage
 - Systematic analysis reduces missed findings
 - Second-opinion function catches subtle abnormalities
+- Binary prompting materially improves pneumonia sensitivity in our benchmark (Recall 98.0% vs 10.0% multi-label)
 
 **Scale:**
 - 500M+ primary care visits annually in US

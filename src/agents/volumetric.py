@@ -47,12 +47,23 @@ class SliceSample:
     slice_index: int
     total_slices: int
     location: str  # Anatomical location (e.g., "upper lung", "mid abdomen")
+    x: int = 0
+    y: int = 0
+    width: int = 0
+    height: int = 0
+    level: int = 0
+    magnification: float = 1.0
     orientation: SliceOrientation = SliceOrientation.AXIAL
 
     @property
     def position_percent(self) -> float:
         """Position as percentage through volume (0-100)."""
-        return (self.slice_index / max(1, self.total_slices - 1)) * 100
+        return (self.slice_index / max(1, self.total_slices)) * 100
+
+    @property
+    def location_str(self) -> str:
+        """Human-readable location string."""
+        return f"({self.x}, {self.y}) at {self.magnification}x"
 
 
 @dataclass

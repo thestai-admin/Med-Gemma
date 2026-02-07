@@ -269,7 +269,7 @@ class PrimaCareOrchestrator:
         medications: Optional[List[str]] = None,
         allergies: Optional[List[str]] = None,
         include_classification: bool = True,
-        parallel_execution: bool = True,
+        parallel_execution: bool = False,
     ) -> PrimaCareResult:
         """
         Run the complete diagnostic support pipeline.
@@ -284,7 +284,7 @@ class PrimaCareOrchestrator:
             medications: Current medications
             allergies: Known allergies
             include_classification: Run zero-shot classification
-            parallel_execution: Run intake and imaging in parallel (saves ~15-20s)
+            parallel_execution: Run intake and imaging in parallel (higher memory pressure on T4)
 
         Returns:
             PrimaCareResult with complete analysis

@@ -21,11 +21,14 @@ Or on Colab/Kaggle:
 """
 
 import gradio as gr
-import torch
 from PIL import Image
 from typing import Optional
 import sys
 from pathlib import Path
+try:
+    import torch
+except ImportError:
+    torch = None
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -893,10 +896,10 @@ def create_demo():
 
 if __name__ == "__main__":
     # Check for GPU
-    if torch.cuda.is_available():
+    if torch is not None and torch.cuda.is_available():
         print(f"GPU available: {torch.cuda.get_device_name(0)}")
     else:
-        print("Warning: No GPU detected. Running on CPU will be slow.")
+        print("Warning: torch/GPU not detected. Running on CPU will be slow.")
 
     # Create and launch demo
     demo = create_demo()

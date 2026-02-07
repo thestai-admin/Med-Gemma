@@ -50,13 +50,20 @@ class GuidelinesResult:
     retrieved_chunks: List[GuidelineChunk] = field(default_factory=list)
     summary: str = ""
     conditions_matched: List[str] = field(default_factory=list)
+    retrieval_mode: str = "none"  # semantic, keyword, none
+    rag_status: str = ""
 
     def to_prompt_context(self) -> str:
         """Format for inclusion in reports."""
         if not self.recommendations:
+            if self.rag_status:
+                return f"No specific guideline recommendations available.\nStatus: {self.rag_status}"
             return "No specific guideline recommendations available."
 
         lines = []
+        if self.rag_status:
+            lines.append(f"Status: {self.rag_status}")
+            lines.append("")
         for i, rec in enumerate(self.recommendations, 1):
             lines.append(f"{i}. {rec.recommendation}")
             if rec.source_guidelines:
@@ -78,6 +85,9 @@ class GuidelinesResult:
 
         if self.conditions_matched:
             lines.append(f"Guidelines consulted for: {', '.join(self.conditions_matched)}")
+            lines.append("")
+        if self.rag_status:
+            lines.append(f"Status: {self.rag_status}")
             lines.append("")
 
         lines.append("**Recommendations:**")
@@ -195,7 +205,7 @@ Format your response as:
                 print("Loaded sentence-transformers embedder")
             except ImportError:
                 print("Warning: sentence-transformers not installed. Install with: pip install sentence-transformers")
-                raise
+                return None
         return self._embedder
 
     def _load_data(self):
@@ -229,7 +239,46 @@ Format your response as:
     def _embed_query(self, query: str) -> np.ndarray:
         """Embed a query string."""
         embedder = self._load_embedder()
+        if embedder is None:
+            raise RuntimeError("Embedder unavailable")
         return embedder.encode(query, convert_to_numpy=True)
+
+    def _keyword_retrieve(self, query: str, top_k: int = 5) -> List[tuple]:
+        """
+        Fallback lexical retrieval when embeddings are unavailable.
+
+        Uses token overlap with lightweight weighting so RAG still works without
+        pre-computed vectors.
+        """
+        query_terms = {
+            term.strip(".,:;()[]{}").lower()
+            for term in query.split()
+            if len(term.strip(".,:;()[]{}")) > 2
+        }
+        if not query_terms:
+            return []
+
+        scored = []
+        for chunk in self._chunks:
+            haystack = " ".join([
+                chunk.condition,
+                chunk.guideline_name,
+                chunk.section,
+                chunk.content,
+            ]).lower()
+            chunk_terms = {
+                term.strip(".,:;()[]{}").lower()
+                for term in haystack.split()
+                if len(term.strip(".,:;()[]{}")) > 2
+            }
+            overlap = query_terms.intersection(chunk_terms)
+            if not overlap:
+                continue
+            score = len(overlap) / max(1, len(query_terms))
+            scored.append((chunk, float(score)))
+
+        scored.sort(key=lambda x: x[1], reverse=True)
+        return scored[:top_k]
 
     def _retrieve(
         self,
@@ -250,11 +299,18 @@ Format your response as:
         """
         self._load_data()
 
-        if self._embeddings is None or len(self._chunks) == 0:
+        if len(self._chunks) == 0:
             return []
 
+        # Fallback retrieval when embeddings are missing.
+        if self._embeddings is None:
+            return self._keyword_retrieve(query, top_k=top_k)
+
         # Embed query
-        query_embedding = self._embed_query(query)
+        try:
+            query_embedding = self._embed_query(query)
+        except Exception:
+            return self._keyword_retrieve(query, top_k=top_k)
 
         # Compute cosine similarity
         # Normalize embeddings
@@ -300,9 +356,18 @@ Format your response as:
 
         # Retrieve relevant chunks
         retrieved = self._retrieve(query, top_k=top_k)
+        result.retrieval_mode = "semantic" if self._embeddings is not None else "keyword"
+        if self._embeddings is None:
+            result.rag_status = (
+                "Embedding index unavailable; using keyword retrieval fallback. "
+                "Generate data/guidelines/embeddings.npz for semantic retrieval."
+            )
 
         if not retrieved:
+            result.retrieval_mode = "none"
             result.summary = "No matching clinical guidelines found in the knowledge base."
+            if not result.rag_status:
+                result.rag_status = "No guidelines retrieved."
             return result
 
         # Store retrieved chunks
