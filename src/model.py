@@ -131,7 +131,12 @@ class MedGemma:
         Returns:
             Generated text response
         """
-        messages = [{"role": "user", "content": question}]
+        messages = [
+            {
+                "role": "user",
+                "content": [{"type": "text", "text": question}],
+            }
+        ]
         output = self.pipe(text=messages, max_new_tokens=max_new_tokens)
         return output[0]["generated_text"][-1]["content"]
 
@@ -150,7 +155,16 @@ class MedGemma:
         Returns:
             Generated text response
         """
-        output = self.pipe(text=messages, max_new_tokens=max_new_tokens)
+        # Normalize plain-string content to list-of-dicts format
+        # required by newer transformers image-text-to-text pipeline
+        normalized = []
+        for msg in messages:
+            content = msg["content"]
+            if isinstance(content, str):
+                content = [{"type": "text", "text": content}]
+            normalized.append({"role": msg["role"], "content": content})
+
+        output = self.pipe(text=normalized, max_new_tokens=max_new_tokens)
         return output[0]["generated_text"][-1]["content"]
 
 
