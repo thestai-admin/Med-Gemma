@@ -58,13 +58,22 @@ def _compute_text_embeddings(
     return text_features.cpu().numpy()
 
 
+class _VisionWithProjection:
+    """Wrapper that runs vision_model + visual_projection + L2 norm."""
+    pass
+
+
 def export_medsiglip_onnx(
     output_path: str,
     model_id: str = "google/medsiglip-448",
     save_text_embeddings: bool = True,
 ) -> str:
     """
-    Export MedSigLIP vision encoder to ONNX format.
+    Export MedSigLIP vision encoder + projection to ONNX format.
+
+    Exports a wrapper that includes both the vision encoder and the
+    visual projection head, so the ONNX output is already in the
+    shared embedding space (matching get_image_features output).
 
     Args:
         output_path: Path for the output ONNX file
@@ -75,6 +84,7 @@ def export_medsiglip_onnx(
         Path to the exported ONNX file
     """
     import torch
+    import torch.nn as nn
     from transformers import AutoModel, AutoProcessor
 
     output_path = Path(output_path)
@@ -85,17 +95,42 @@ def export_medsiglip_onnx(
     model = AutoModel.from_pretrained(model_id)
     model.eval()
 
-    # Get vision encoder
-    vision_model = model.vision_model
+    # Wrapper that mirrors model.get_image_features():
+    #   vision_model -> pooler_output -> visual_projection -> L2 normalize
+    class VisionProjectionWrapper(nn.Module):
+        def __init__(self, vision_model, visual_projection):
+            super().__init__()
+            self.vision_model = vision_model
+            self.visual_projection = visual_projection
+
+        def forward(self, pixel_values):
+            vision_outputs = self.vision_model(pixel_values=pixel_values)
+            pooled_output = vision_outputs.pooler_output
+            image_features = self.visual_projection(pooled_output)
+            image_features = image_features / image_features.norm(
+                dim=-1, keepdim=True
+            )
+            return image_features
+
+    wrapper = VisionProjectionWrapper(model.vision_model, model.visual_projection)
+    wrapper.eval()
 
     # Create dummy input matching processor output
     from PIL import Image
     dummy_image = Image.new("RGB", (448, 448))
     pixel_values = processor(images=dummy_image, return_tensors="pt")["pixel_values"]
 
-    print(f"Exporting vision encoder to ONNX: {output_path}")
+    # Verify wrapper matches get_image_features
+    with torch.no_grad():
+        wrapper_out = wrapper(pixel_values)
+        direct_out = model.get_image_features(pixel_values)
+        direct_out = direct_out / direct_out.norm(dim=-1, keepdim=True)
+        match = torch.allclose(wrapper_out, direct_out, atol=1e-5)
+        print(f"Wrapper matches get_image_features: {match}")
+
+    print(f"Exporting vision encoder + projection to ONNX: {output_path}")
     torch.onnx.export(
-        vision_model,
+        wrapper,
         (pixel_values,),
         str(output_path),
         input_names=["pixel_values"],

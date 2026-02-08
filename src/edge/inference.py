@@ -117,22 +117,16 @@ class EdgeClassifier:
         # Preprocess
         pixel_values = self._preprocess_image(image)
 
-        # Run ONNX inference
+        # Run ONNX inference (output is already projected + L2 normalized)
         outputs = self.session.run(None, {self.input_name: pixel_values})
         image_features = outputs[0]
 
-        # Pool if needed (take [CLS] token or mean pool)
-        if image_features.ndim == 3:
-            # Shape: (batch, seq_len, embed_dim) -> mean pool
-            image_features = image_features.mean(axis=1)
-
-        # Normalize image features
-        image_features = image_features / np.linalg.norm(
-            image_features, axis=-1, keepdims=True
-        )
-
         # Compute cosine similarity with pre-computed text embeddings
+        # Both are L2-normalized, so dot product = cosine similarity
         similarities = np.dot(image_features, self.text_embeddings.T).squeeze()
+
+        # Scale similarities for sharper softmax (SigLIP uses learned temperature)
+        similarities = similarities * 10.0
 
         # Apply softmax to get probabilities
         exp_sim = np.exp(similarities - np.max(similarities))
