@@ -4,45 +4,85 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-PrimaCare AI is a multi-agent diagnostic support system for primary care physicians, built for the MedGemma Impact Challenge (Kaggle competition, deadline Feb 24, 2026). It uses MedGemma 1.5 4B and MedSigLIP for chest X-ray analysis and clinical reasoning.
+PrimaCare AI is a multi-agent diagnostic support system for primary care physicians, built for the MedGemma Impact Challenge (Kaggle competition, deadline Feb 24, 2026). The submission narrative is CXR-first (chest X-ray analysis). It uses MedGemma 1.5 4B for multimodal analysis and MedSigLIP for zero-shot classification. Competes in all 4 award tracks: Main, Agentic Workflow, Novel Task (patient education), and Edge AI.
 
 ## Architecture
 
 ```
-Patient → IntakeAgent → ImagingAgent → ReasoningAgent → GuidelinesAgent → Output
-              ↓              ↓              ↓                ↓
-         Structured       X-ray        Differential    Evidence-Based
-         HPI + Flags    Analysis        + Workup       Recommendations
+Patient -> IntakeAgent -> ImagingAgent -> ReasoningAgent -> GuidelinesAgent -> EducationAgent -> Output
+              |               |               |                 |                  |
+         Structured       X-ray         Differential      Evidence-Based     Patient-Friendly
+         HPI + Flags    Analysis         + Workup        Recommendations      Education
 ```
 
-**Agent Pipeline (src/agents/):**
-- `IntakeAgent` - Structures patient history into formal HPI format using MedGemma text generation
-- `ImagingAgent` - Analyzes chest X-rays with MedGemma + zero-shot classification with MedSigLIP
-- `ReasoningAgent` - Generates differential diagnosis, workup recommendations, and disposition
-- `GuidelinesAgent` - RAG for clinical practice guidelines using sentence-transformers (CPU) + MedGemma synthesis
-- `PrimaCareOrchestrator` - Coordinates all agents, manages model sharing via lazy loading
+**Tiered deployment:**
+- Edge (CPU): MedSigLIP ONNX INT8 for binary pneumonia screening (`src/edge/`)
+- Cloud (GPU): Full 5-agent pipeline with MedGemma
 
-**Model Wrappers (src/model.py):**
-- `MedGemma` - Wrapper using `pipeline("image-text-to-text")` for multimodal analysis
-- `MedSigLIP` - Zero-shot classification using CLIP-style image-text matching
+**Entry point:** `PrimaCareOrchestrator.run()` in `src/agents/orchestrator.py`. The orchestrator lazy-loads all models and agents via `@property` accessors — no model loads at import time.
+
+**Agent pipeline (src/agents/):**
+- `IntakeAgent` — Structures patient history into formal HPI format
+- `ImagingAgent` — CXR analysis with MedGemma + zero-shot classification via MedSigLIP. Supports three classification modes: `multilabel`, `binary`, `ensemble`
+- `ReasoningAgent` — Generates differential diagnosis, workup, and disposition
+- `GuidelinesAgent` — RAG over clinical guidelines using sentence-transformers (CPU) + MedGemma synthesis
+- `PatientEducationAgent` — Converts technical reports to patient-friendly language at 3 reading levels (basic, intermediate, detailed) with glossary
+
+**Edge module (src/edge/):**
+- `EdgeClassifier` — CPU-only pneumonia screening via ONNX-quantized MedSigLIP
+- `quantize.py` — ONNX export + INT8 dynamic quantization
+- `benchmark.py` — Latency, memory, and accuracy benchmarking
+
+**Model wrappers (src/model.py):**
+- `MedGemma` — Wraps `pipeline("image-text-to-text")` for local use. On Kaggle, use direct `AutoModelForImageTextToText` loading instead (see Kaggle section)
+- `MedSigLIP` — CLIP-style zero-shot classification via `AutoModel`
+
+**Data flow — structured dataclasses chained between agents:**
+```
+PatientContext -> ImageAnalysis -> ClinicalRecommendation -> GuidelinesResult -> PatientEducation -> PrimaCareResult
+```
+Each intermediate result has `to_prompt_context()` for chaining. `PrimaCareResult.to_report()` generates the final clinical report; `.to_dict()` returns JSON-serializable output.
+
+**Lazy imports:** `src/__init__.py` uses `__getattr__` to lazily load all heavy submodules. Lightweight imports don't pull in torch/transformers.
+
+**Evaluation (src/eval/):** Deterministic binary classification metrics (`confusion_counts`, `compute_binary_metrics`, `evaluate_scores`, `sweep_thresholds`, `select_threshold`, `bootstrap_metric_ci`) and latency profiling (`profile_orchestrator_latency`).
 
 ## Commands
 
 ```bash
-# Run Gradio demo locally
+# Install dependencies
+pip install -r requirements.txt
+
+# Run tests (all tests use mocks, no GPU needed)
+pytest
+
+# Run a specific test file or by keyword
+pytest tests/test_education.py
+pytest tests/test_edge.py
+pytest -k longitudinal
+
+# Run Gradio demo locally (requires GPU)
 python app/demo.py
 
-# Push to GitHub
-git add -A && git commit -m "message" && git push
+# Export edge model (requires GPU for initial export)
+python scripts/export_edge_model.py
+
+# Run edge benchmarks (CPU only)
+python scripts/run_edge_benchmark.py
+
+# Generate guideline embeddings (one-time setup, requires sentence-transformers)
+python scripts/prepare_guidelines.py
 ```
 
 ## Development Environment
 
-**Primary development happens on Kaggle notebooks** (T4 GPU, 30hrs/week free). The `notebooks/04-agentic-workflow.ipynb` is the main submission notebook.
+**Primary development happens on Kaggle notebooks** (T4 GPU). The recommended submission path is `notebooks/05-cxr-first-submission.ipynb`. `notebooks/04-agentic-workflow.ipynb` is the extended demo with profiling.
 
-**Local development** is for code organization and git management only - no GPU available locally.
+**Local development** is for code organization, tests, and git management — no GPU available locally. Tests use `mock_medgemma` and `mock_medsiglip` fixtures from `tests/conftest.py`.
 
 ## Kaggle-Specific Requirements
+
+**T4 GPU constraints (~16GB VRAM):** MedGemma ~10GB + MedSigLIP ~4GB + sentence-transformers on CPU.
 
 Every notebook must start with:
 ```python
@@ -54,7 +94,7 @@ import warnings
 warnings.filterwarnings('ignore')
 ```
 
-Model loading (use direct loading, NOT pipeline, for Kaggle compatibility):
+Model loading on Kaggle (use direct loading, NOT pipeline):
 ```python
 from transformers import AutoProcessor, AutoModelForImageTextToText
 
@@ -66,41 +106,27 @@ model = AutoModelForImageTextToText.from_pretrained(
 processor = AutoProcessor.from_pretrained("google/medgemma-1.5-4b-it")
 ```
 
-HuggingFace authentication on Kaggle:
+HuggingFace auth on Kaggle:
 ```python
 from huggingface_hub import login
 from kaggle_secrets import UserSecretsClient
 login(token=UserSecretsClient().get_secret("HF_TOKEN"))
 ```
 
-## Key Files
+For longitudinal imaging (multiple images), process sequentially and call `torch.cuda.empty_cache()` between analyses to avoid OOM.
 
-| File | Purpose |
-|------|---------|
-| `notebooks/04-agentic-workflow.ipynb` | Main competition submission |
-| `notebooks/03-prototype.ipynb` | PrimaCare AI pipeline development |
-| `src/agents/orchestrator.py` | Main entry point - `PrimaCareOrchestrator.run()` |
-| `src/agents/guidelines.py` | GuidelinesAgent with RAG for clinical guidelines |
-| `src/model.py` | MedGemma and MedSigLIP wrappers |
-| `app/demo.py` | Gradio demo application |
-| `data/guidelines/chunks.json` | Clinical guideline chunks for RAG |
-| `data/guidelines/embeddings.npz` | Pre-computed embeddings (generate with scripts/prepare_guidelines.py) |
-| `scripts/prepare_guidelines.py` | One-time script to generate guideline embeddings |
+## Testing
 
-## Data Classes
-
-The agent pipeline uses these dataclasses to pass structured data:
-
-- `PatientContext` / `StructuredHPI` (intake.py) - Patient demographics and HPI elements
-- `ImageAnalysis` / `ImagingFinding` (imaging.py) - X-ray findings and classification results
-- `ClinicalRecommendation` / `Diagnosis` / `WorkupItem` (reasoning.py) - Clinical output
-- `GuidelineChunk` / `GuidelinesResult` / `GuidelineRecommendation` (guidelines.py) - RAG results with citations
-- `PrimaCareResult` (orchestrator.py) - Complete pipeline result with `to_report()` method
+- Framework: pytest with shared fixtures in `tests/conftest.py`
+- All tests run locally without GPU using `mock_medgemma`/`mock_medsiglip` fixtures
+- Custom marker: `requires_gpu` (auto-skipped when GPU unavailable)
+- Test naming: `tests/test_<feature>.py`, functions as `test_<behavior>()`
+- Current: 42 tests passing, 1 skipped (GPU)
 
 ## Known Issues to Ignore
 
-- `MessageFactory` warnings - protobuf version mismatch, doesn't affect execution
-- `slow image processor` warning - expected behavior, works correctly
+- `MessageFactory` warnings — protobuf version mismatch, harmless
+- `slow image processor` warning — expected, works correctly
 
 ## External Resources
 

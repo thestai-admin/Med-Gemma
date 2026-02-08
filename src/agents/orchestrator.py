@@ -13,14 +13,13 @@ from pathlib import Path
 from PIL import Image
 from datetime import datetime
 import concurrent.futures
+import time
 
 from .intake import IntakeAgent, PatientContext, StructuredHPI, Urgency
 from .imaging import ImagingAgent, ImageAnalysis, ImageModality, LongitudinalAnalysis
 from .reasoning import ReasoningAgent, ClinicalRecommendation
 from .guidelines import GuidelinesAgent, GuidelinesResult
-from .volumetric import VolumetricImagingAgent, VolumetricAnalysis, VolumetricModality
-from .ehr_navigator import EHRNavigatorAgent, EHRQueryResult
-from .pathology import PathologyAgent, PathologyAnalysis, TissueType
+from .education import PatientEducationAgent, PatientEducation
 
 
 @dataclass
@@ -38,9 +37,13 @@ class PrimaCareResult:
     # Evidence-based guidelines
     guidelines_result: Optional[GuidelinesResult] = None
 
+    # Patient education
+    patient_education: Optional[PatientEducation] = None
+
     # Metadata
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
     processing_steps: List[str] = field(default_factory=list)
+    timings: Dict[str, float] = field(default_factory=dict)
     overall_urgency: Urgency = Urgency.ROUTINE
 
     def to_report(self) -> str:
@@ -83,6 +86,19 @@ class PrimaCareResult:
             lines.append(self.guidelines_result.to_report_section())
             lines.append("")
 
+        # Patient Education
+        if self.patient_education:
+            lines.append(self.patient_education.to_report_section())
+            lines.append("")
+
+        if self.timings:
+            lines.append("-" * 40)
+            lines.append("PIPELINE TIMINGS")
+            lines.append("-" * 40)
+            for key in sorted(self.timings.keys()):
+                lines.append(f"{key}: {self.timings[key]:.2f}s")
+            lines.append("")
+
         lines.append("=" * 60)
         lines.append("DISCLAIMER: This is AI-generated content for clinical")
         lines.append("decision support only. All findings require verification")
@@ -105,6 +121,8 @@ class PrimaCareResult:
                 "modality": self.imaging_analysis.modality.value if self.imaging_analysis else None,
                 "impression": self.imaging_analysis.impression if self.imaging_analysis else None,
                 "urgent": self.imaging_analysis.requires_urgent_review if self.imaging_analysis else False,
+                "classification_mode": self.imaging_analysis.classification_mode if self.imaging_analysis else None,
+                "classification_details": self.imaging_analysis.classification_details if self.imaging_analysis else {},
             },
             "assessment": {
                 "most_likely": self.recommendation.most_likely_diagnosis if self.recommendation else None,
@@ -118,7 +136,13 @@ class PrimaCareResult:
                 ],
                 "conditions_matched": self.guidelines_result.conditions_matched if self.guidelines_result else [],
             },
+            "education": {
+                "reading_level": self.patient_education.reading_level if self.patient_education else None,
+                "simplified_diagnosis": self.patient_education.simplified_diagnosis if self.patient_education else None,
+                "glossary": self.patient_education.glossary if self.patient_education else {},
+            },
             "processing_steps": self.processing_steps,
+            "timings": self.timings,
         }
 
 
@@ -159,6 +183,7 @@ class PrimaCareOrchestrator:
         classifier=None,
         load_classifier: bool = True,
         enable_guidelines: bool = True,
+        enable_education: bool = False,
         guidelines_path: Optional[str] = None,
     ):
         """
@@ -169,12 +194,14 @@ class PrimaCareOrchestrator:
             classifier: Optional MedSigLIP classifier instance
             load_classifier: Whether to load classifier for imaging
             enable_guidelines: Whether to enable guidelines RAG agent
+            enable_education: Whether to enable patient education agent
             guidelines_path: Optional path to guidelines data directory
         """
         self._model = model
         self._classifier = classifier
         self._load_classifier = load_classifier
         self._enable_guidelines = enable_guidelines
+        self._enable_education = enable_education
         self._guidelines_path = guidelines_path
 
         # Initialize agents (they will share the model)
@@ -182,9 +209,7 @@ class PrimaCareOrchestrator:
         self._imaging_agent = None
         self._reasoning_agent = None
         self._guidelines_agent = None
-        self._volumetric_agent = None
-        self._ehr_navigator_agent = None
-        self._pathology_agent = None
+        self._education_agent = None
 
     @property
     def model(self):
@@ -238,25 +263,11 @@ class PrimaCareOrchestrator:
         return self._guidelines_agent
 
     @property
-    def volumetric_agent(self) -> VolumetricImagingAgent:
-        """Get or create volumetric imaging agent."""
-        if self._volumetric_agent is None:
-            self._volumetric_agent = VolumetricImagingAgent(model=self.model)
-        return self._volumetric_agent
-
-    @property
-    def ehr_navigator_agent(self) -> EHRNavigatorAgent:
-        """Get or create EHR navigator agent."""
-        if self._ehr_navigator_agent is None:
-            self._ehr_navigator_agent = EHRNavigatorAgent(model=self.model)
-        return self._ehr_navigator_agent
-
-    @property
-    def pathology_agent(self) -> PathologyAgent:
-        """Get or create pathology agent."""
-        if self._pathology_agent is None:
-            self._pathology_agent = PathologyAgent(model=self.model)
-        return self._pathology_agent
+    def education_agent(self) -> PatientEducationAgent:
+        """Get or create patient education agent."""
+        if self._education_agent is None:
+            self._education_agent = PatientEducationAgent(model=self.model)
+        return self._education_agent
 
     def run(
         self,
@@ -269,7 +280,13 @@ class PrimaCareOrchestrator:
         medications: Optional[List[str]] = None,
         allergies: Optional[List[str]] = None,
         include_classification: bool = True,
+        classification_mode: str = "multilabel",
+        classification_threshold: float = 0.5,
         parallel_execution: bool = False,
+        profile: bool = False,
+        fast_mode: bool = False,
+        include_education: bool = False,
+        education_level: str = "basic",
     ) -> PrimaCareResult:
         """
         Run the complete diagnostic support pipeline.
@@ -284,12 +301,27 @@ class PrimaCareOrchestrator:
             medications: Current medications
             allergies: Known allergies
             include_classification: Run zero-shot classification
+            classification_mode: Imaging classification strategy (multilabel, binary, ensemble)
+            classification_threshold: Positive threshold used by binary/ensemble strategies
             parallel_execution: Run intake and imaging in parallel (higher memory pressure on T4)
+            profile: Capture per-stage timings
+            fast_mode: Lower-latency mode (disables guidelines and defaults multilabel -> binary)
+            include_education: Generate patient-friendly education output
+            education_level: Reading level for education ("basic", "intermediate", "detailed")
 
         Returns:
             PrimaCareResult with complete analysis
         """
         result = PrimaCareResult()
+        total_start = time.perf_counter() if profile else None
+
+        run_guidelines = self._enable_guidelines
+        effective_classification_mode = classification_mode
+        if fast_mode:
+            result.processing_steps.append("fast_mode_enabled")
+            run_guidelines = False
+            if include_classification and effective_classification_mode == "multilabel":
+                effective_classification_mode = "binary"
 
         # Build clinical context for imaging (needed for parallel execution)
         clinical_context = f"{chief_complaint}. {history}"
@@ -302,6 +334,7 @@ class PrimaCareOrchestrator:
             result.processing_steps.append("parallel_started")
 
             def run_intake():
+                start = time.perf_counter() if profile else None
                 return self.intake_agent.create_patient_context(
                     chief_complaint=chief_complaint,
                     history=history,
@@ -310,14 +343,17 @@ class PrimaCareOrchestrator:
                     pmh=pmh,
                     medications=medications,
                     allergies=allergies,
-                )
+                ), (time.perf_counter() - start if profile else None)
 
             def run_imaging():
+                start = time.perf_counter() if profile else None
                 return self.imaging_agent.analyze(
                     image=xray_image,
                     clinical_context=clinical_context,
                     include_classification=include_classification,
-                )
+                    classification_mode=effective_classification_mode,
+                    classification_threshold=classification_threshold,
+                ), (time.perf_counter() - start if profile else None)
 
             # Execute in parallel using ThreadPoolExecutor
             with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
@@ -325,13 +361,16 @@ class PrimaCareOrchestrator:
                 imaging_future = executor.submit(run_imaging)
 
                 # Wait for both to complete
-                patient_context = intake_future.result()
-                imaging_analysis = imaging_future.result()
+                patient_context, intake_elapsed = intake_future.result()
+                imaging_analysis, imaging_elapsed = imaging_future.result()
 
             result.patient_context = patient_context
             result.imaging_analysis = imaging_analysis
             result.processing_steps.append("intake_completed")
             result.processing_steps.append("imaging_completed")
+            if profile:
+                result.timings["intake"] = intake_elapsed or 0.0
+                result.timings["imaging"] = imaging_elapsed or 0.0
 
         else:
             # Sequential execution (original behavior)
@@ -339,6 +378,7 @@ class PrimaCareOrchestrator:
             print("Step 1: Processing patient information...")
             result.processing_steps.append("intake_started")
 
+            intake_start = time.perf_counter() if profile else None
             patient_context = self.intake_agent.create_patient_context(
                 chief_complaint=chief_complaint,
                 history=history,
@@ -350,19 +390,26 @@ class PrimaCareOrchestrator:
             )
             result.patient_context = patient_context
             result.processing_steps.append("intake_completed")
+            if profile and intake_start is not None:
+                result.timings["intake"] = time.perf_counter() - intake_start
 
             # Step 2: Analyze imaging (if provided)
             if xray_image is not None:
                 print("Step 2: Analyzing chest X-ray...")
                 result.processing_steps.append("imaging_started")
 
+                imaging_start = time.perf_counter() if profile else None
                 imaging_analysis = self.imaging_agent.analyze(
                     image=xray_image,
                     clinical_context=clinical_context,
                     include_classification=include_classification,
+                    classification_mode=effective_classification_mode,
+                    classification_threshold=classification_threshold,
                 )
                 result.imaging_analysis = imaging_analysis
                 result.processing_steps.append("imaging_completed")
+                if profile and imaging_start is not None:
+                    result.timings["imaging"] = time.perf_counter() - imaging_start
             else:
                 print("Step 2: No imaging provided, skipping...")
                 result.processing_steps.append("imaging_skipped")
@@ -371,15 +418,18 @@ class PrimaCareOrchestrator:
         print("Step 3: Generating clinical assessment...")
         result.processing_steps.append("reasoning_started")
 
+        reasoning_start = time.perf_counter() if profile else None
         recommendation = self.reasoning_agent.reason(
             patient_context=result.patient_context,
             imaging_analysis=result.imaging_analysis,
         )
         result.recommendation = recommendation
         result.processing_steps.append("reasoning_completed")
+        if profile and reasoning_start is not None:
+            result.timings["reasoning"] = time.perf_counter() - reasoning_start
 
         # Step 4: Evidence-based guidelines (if enabled)
-        if self._enable_guidelines and result.recommendation:
+        if run_guidelines and result.recommendation:
             print("Step 4: Retrieving clinical guidelines...")
             result.processing_steps.append("guidelines_started")
 
@@ -389,20 +439,46 @@ class PrimaCareOrchestrator:
                     d.name for d in result.recommendation.differential_diagnosis[:3]
                 ]
 
+                guidelines_start = time.perf_counter() if profile else None
                 guidelines_result = self.guidelines_agent.get_recommendations(
                     differential_diagnosis=differential,
                     chief_complaint=chief_complaint,
                 )
                 result.guidelines_result = guidelines_result
                 result.processing_steps.append("guidelines_completed")
+                if profile and guidelines_start is not None:
+                    result.timings["guidelines"] = time.perf_counter() - guidelines_start
             except Exception as e:
                 print(f"Warning: Guidelines retrieval failed: {e}")
                 result.processing_steps.append("guidelines_failed")
         else:
             result.processing_steps.append("guidelines_skipped")
 
+        # Step 5: Patient education (if enabled)
+        run_education = include_education or self._enable_education
+        if run_education and not fast_mode:
+            print("Step 5: Generating patient education...")
+            result.processing_steps.append("education_started")
+
+            try:
+                education_start = time.perf_counter() if profile else None
+                education = self.education_agent.educate(
+                    result, reading_level=education_level,
+                )
+                result.patient_education = education
+                result.processing_steps.append("education_completed")
+                if profile and education_start is not None:
+                    result.timings["education"] = time.perf_counter() - education_start
+            except Exception as e:
+                print(f"Warning: Patient education generation failed: {e}")
+                result.processing_steps.append("education_failed")
+        else:
+            result.processing_steps.append("education_skipped")
+
         # Determine overall urgency
         result.overall_urgency = self._determine_overall_urgency(result)
+        if profile and total_start is not None:
+            result.timings["total"] = time.perf_counter() - total_start
 
         print("Analysis complete!")
         return result
@@ -412,6 +488,10 @@ class PrimaCareOrchestrator:
         image: Union[Image.Image, str, Path],
         clinical_context: Optional[str] = None,
         include_classification: bool = True,
+        classification_mode: str = "multilabel",
+        classification_threshold: float = 0.5,
+        profile: bool = False,
+        fast_mode: bool = False,
     ) -> PrimaCareResult:
         """
         Quick image-only analysis.
@@ -420,33 +500,53 @@ class PrimaCareOrchestrator:
             image: Chest X-ray image
             clinical_context: Optional clinical information
             include_classification: Run classification
+            classification_mode: Imaging classification strategy (multilabel, binary, ensemble)
+            classification_threshold: Positive threshold used by binary/ensemble strategies
+            profile: Capture per-stage timings
+            fast_mode: Lower-latency mode (defaults multilabel -> binary)
 
         Returns:
             PrimaCareResult with imaging analysis
         """
         result = PrimaCareResult()
+        total_start = time.perf_counter() if profile else None
         result.processing_steps.append("imaging_only_mode")
+
+        effective_classification_mode = classification_mode
+        if fast_mode and include_classification and classification_mode == "multilabel":
+            effective_classification_mode = "binary"
+            result.processing_steps.append("fast_mode_enabled")
 
         # Analyze image
         print("Analyzing image...")
+        imaging_start = time.perf_counter() if profile else None
         imaging_analysis = self.imaging_agent.analyze(
             image=image,
             clinical_context=clinical_context,
             include_classification=include_classification,
+            classification_mode=effective_classification_mode,
+            classification_threshold=classification_threshold,
         )
         result.imaging_analysis = imaging_analysis
         result.processing_steps.append("imaging_completed")
+        if profile and imaging_start is not None:
+            result.timings["imaging"] = time.perf_counter() - imaging_start
 
         # Generate basic recommendation from imaging alone
         print("Generating assessment...")
+        reasoning_start = time.perf_counter() if profile else None
         recommendation = self.reasoning_agent.reason(
             imaging_analysis=imaging_analysis,
             clinical_text=clinical_context,
         )
         result.recommendation = recommendation
         result.processing_steps.append("reasoning_completed")
+        if profile and reasoning_start is not None:
+            result.timings["reasoning"] = time.perf_counter() - reasoning_start
 
         result.overall_urgency = self._determine_overall_urgency(result)
+        if profile and total_start is not None:
+            result.timings["total"] = time.perf_counter() - total_start
         return result
 
     def get_differential(
@@ -514,10 +614,6 @@ class PrimaCareOrchestrator:
             return max(urgencies, key=lambda u: priority[u])
         return Urgency.ROUTINE
 
-    # =========================================================================
-    # New Feature Methods
-    # =========================================================================
-
     def run_longitudinal(
         self,
         prior_image: Union[Image.Image, str, Path],
@@ -544,109 +640,6 @@ class PrimaCareOrchestrator:
             clinical_context=clinical_context,
             interval=interval,
         )
-
-    def run_volumetric(
-        self,
-        volume: Union[List[Image.Image], List[str], List[Path]],
-        modality: VolumetricModality = VolumetricModality.CT,
-        clinical_context: Optional[str] = None,
-        body_region: str = "chest",
-        num_slices: int = 6,
-    ) -> VolumetricAnalysis:
-        """
-        Analyze a volumetric CT/MRI study.
-
-        Args:
-            volume: List of slice images or paths
-            modality: CT or MRI
-            clinical_context: Clinical information
-            body_region: Body region for anatomical labeling
-            num_slices: Number of slices to analyze (max 6)
-
-        Returns:
-            VolumetricAnalysis with findings
-        """
-        print(f"Running volumetric {modality.value.upper()} analysis...")
-        return self.volumetric_agent.analyze(
-            volume=volume,
-            modality=modality,
-            clinical_context=clinical_context,
-            body_region=body_region,
-            num_slices=num_slices,
-        )
-
-    def query_ehr(
-        self,
-        question: str,
-        fhir_bundle: Dict[str, Any],
-    ) -> EHRQueryResult:
-        """
-        Query patient EHR data using natural language.
-
-        Args:
-            question: Natural language clinical question
-            fhir_bundle: FHIR Bundle containing patient data
-
-        Returns:
-            EHRQueryResult with answer and supporting facts
-        """
-        print("Querying EHR data...")
-        return self.ehr_navigator_agent.query(
-            question=question,
-            fhir_bundle=fhir_bundle,
-        )
-
-    def run_pathology(
-        self,
-        image_or_wsi: Union[Image.Image, str, Path],
-        tissue_type: TissueType = TissueType.GENERAL,
-        clinical_context: Optional[str] = None,
-        is_wsi: bool = False,
-        num_tiles: int = 4,
-    ) -> PathologyAnalysis:
-        """
-        Analyze a pathology image or whole slide image.
-
-        Args:
-            image_or_wsi: PIL Image, image path, or WSI path
-            tissue_type: Type of tissue
-            clinical_context: Clinical information
-            is_wsi: Whether input is a whole slide image
-            num_tiles: Number of tiles for WSI analysis (max 4)
-
-        Returns:
-            PathologyAnalysis with findings
-        """
-        print(f"Running pathology analysis ({tissue_type.value})...")
-
-        if is_wsi:
-            return self.pathology_agent.analyze_wsi(
-                wsi_path=image_or_wsi,
-                tissue_type=tissue_type,
-                clinical_context=clinical_context,
-                num_tiles=num_tiles,
-            )
-        else:
-            return self.pathology_agent.analyze_image(
-                image=image_or_wsi,
-                tissue_type=tissue_type,
-                clinical_context=clinical_context,
-            )
-
-    def get_ehr_patient_summary(
-        self,
-        fhir_bundle: Dict[str, Any],
-    ) -> str:
-        """
-        Get a quick patient summary from FHIR bundle.
-
-        Args:
-            fhir_bundle: FHIR Bundle containing patient data
-
-        Returns:
-            Formatted patient summary string
-        """
-        return self.ehr_navigator_agent.get_patient_summary(fhir_bundle)
 
 
 # =============================================================================

@@ -1,38 +1,53 @@
 # PrimaCare AI - MedGemma Impact Challenge
 
-**Multi-agent diagnostic support system for primary care physicians**
+**CXR-first multi-agent diagnostic support with patient education and edge deployment**
 
 Competition entry for the [MedGemma Impact Challenge](https://www.kaggle.com/competitions/med-gemma-impact-challenge) - a Kaggle hackathon with $100,000 in prizes.
 
 ## Project Overview
 
-PrimaCare AI is a multimodal diagnostic support system built on MedGemma 1.5 4B and MedSigLIP. It uses an agentic architecture to help primary care physicians:
+PrimaCare AI is a CXR-first diagnostic support system built on MedGemma 1.5 4B and MedSigLIP. It uses a 5-agent agentic architecture to help primary care physicians:
 
 - Structure patient histories into formal HPI format
 - Analyze chest X-rays with zero-shot classification
 - Generate differential diagnoses and recommended workups
 - Retrieve evidence-based clinical practice guidelines (RAG)
-- Generate patient-friendly explanations
+- **Translate findings into patient-friendly language at 3 reading levels**
+
+For resource-limited settings, the edge module provides **CPU-only pneumonia screening** using ONNX-quantized MedSigLIP.
 
 ### Architecture
 
 ```
-Patient → IntakeAgent → ImagingAgent → ReasoningAgent → GuidelinesAgent → Output
-              ↓              ↓              ↓                 ↓
-         Structured       X-ray        Differential    Evidence-Based
-           HPI          Analysis        + Workup       Recommendations
+Patient -> IntakeAgent -> ImagingAgent -> ReasoningAgent -> GuidelinesAgent -> EducationAgent -> Output
+              |               |               |                 |                  |
+         Structured       X-ray         Differential      Evidence-Based     Patient-Friendly
+         HPI + Flags    Analysis         + Workup        Recommendations      Education
 ```
+
+### Tiered Deployment
+
+```
+[Edge - CPU Only]                         [Cloud - GPU]
+MedSigLIP ONNX INT8 -> Pneumonia? --Y--> Full 5-Agent Pipeline
+       |                                        |
+       +--- Normal ----------------------> Done  +---> Report + Education
+```
+
+## Award Tracks
+
+| Track | Prize | Status |
+|-------|-------|--------|
+| Main Track | $75K | 5-agent pipeline, F1 0.803 binary pneumonia |
+| Agentic Workflow | $10K | 5 agents, orchestrator, RAG, profiling |
+| Novel Task | $10K | PatientEducationAgent (3 reading levels + glossary) |
+| Edge AI | $5K | MedSigLIP ONNX INT8, CPU-only inference |
 
 ## Quick Start
 
-### Prerequisites
-- Python 3.10+
-- Hugging Face account with [HAI-DEF terms](https://huggingface.co/google/medgemma-1.5-4b-it) accepted
-- GPU access (Kaggle notebooks or Google Colab with T4/P100)
-
 ### Run on Kaggle
 
-1. Upload `notebooks/04-agentic-workflow.ipynb` to Kaggle
+1. Upload `notebooks/05-cxr-first-submission.ipynb` to Kaggle
 2. Add your HF_TOKEN as a Kaggle secret
 3. Enable GPU accelerator (T4)
 4. Run all cells
@@ -40,7 +55,6 @@ Patient → IntakeAgent → ImagingAgent → ReasoningAgent → GuidelinesAgent 
 ### Using MedGemma (Direct Model)
 
 ```python
-# IMPORTANT: Disable torch dynamo BEFORE importing torch
 import os
 os.environ["TORCHDYNAMO_DISABLE"] = "1"
 
@@ -48,7 +62,6 @@ import torch
 from transformers import AutoProcessor, AutoModelForImageTextToText
 from PIL import Image
 
-# Load model
 model = AutoModelForImageTextToText.from_pretrained(
     "google/medgemma-1.5-4b-it",
     torch_dtype=torch.bfloat16,
@@ -56,7 +69,6 @@ model = AutoModelForImageTextToText.from_pretrained(
 )
 processor = AutoProcessor.from_pretrained("google/medgemma-1.5-4b-it")
 
-# Analyze a chest X-ray
 image = Image.open("path/to/xray.png").convert("RGB")
 
 messages = [{
@@ -79,105 +91,115 @@ generated_ids = output_ids[:, inputs["input_ids"].shape[-1]:]
 print(processor.batch_decode(generated_ids, skip_special_tokens=True)[0])
 ```
 
+### Using the Pipeline
+
+```python
+from src.agents import PrimaCareOrchestrator
+
+orchestrator = PrimaCareOrchestrator()
+result = orchestrator.run(
+    chief_complaint="Cough for 2 weeks with fever",
+    history="65yo male smoker",
+    xray_image=image,
+    include_education=True,       # Generate patient education
+    education_level="basic",      # 6th-grade reading level
+    profile=True,                 # Capture timings
+)
+print(result.to_report())
+```
+
+### Edge AI (CPU-Only)
+
+```python
+from src.edge import EdgeClassifier
+
+classifier = EdgeClassifier("models/edge/medsiglip_int8.onnx")
+result = classifier.classify_pneumonia(image)
+# {"normal": 0.82, "pneumonia": 0.18}
+```
+
+## Commands
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Run tests (all use mocks, no GPU needed)
+pytest
+
+# Run Gradio demo locally (requires GPU)
+python app/demo.py
+
+# Export edge model (requires GPU for initial export)
+python scripts/export_edge_model.py
+
+# Run edge benchmarks (CPU only)
+python scripts/run_edge_benchmark.py
+
+# Generate guideline embeddings
+python scripts/prepare_guidelines.py
+```
+
 ## Notebooks
 
 | Notebook | Description | Status |
 |----------|-------------|--------|
-| `04-agentic-workflow.ipynb` | **Main submission** - 4-agent pipeline with RAG, evaluation metrics, Gradio demo | **Primary** |
-| `03-prototype.ipynb` | PrimaCare AI pipeline development | Reference |
-| `01-model-exploration.ipynb` | MedGemma + MedSigLIP capabilities exploration | Reference |
+| `05-cxr-first-submission.ipynb` | CXR-first reproducible submission with education + edge | **Primary** |
+| `04-agentic-workflow.ipynb` | Extended demo with evaluation metrics and profiling | Reference |
 
 ## Project Structure
 
 ```
 Med Gemma/
 ├── notebooks/              # Kaggle-ready Jupyter notebooks
-│   └── 04-agentic-workflow.ipynb  # Main submission
+│   ├── 05-cxr-first-submission.ipynb  # Primary submission
+│   └── 04-agentic-workflow.ipynb      # Extended demo
 ├── src/
-│   ├── model.py           # MedGemma wrapper
-│   ├── data.py            # Data loading utilities
-│   ├── inference.py       # Inference pipeline
-│   └── agents/            # Agent implementations
-│       ├── intake.py      # IntakeAgent - HPI structuring
-│       ├── imaging.py     # ImagingAgent - X-ray analysis
-│       ├── reasoning.py   # ReasoningAgent - Differential Dx
-│       ├── guidelines.py  # GuidelinesAgent - RAG
-│       └── orchestrator.py # PrimaCareOrchestrator
+│   ├── model.py           # MedGemma + MedSigLIP wrappers
+│   ├── eval/              # Reproducible CXR evaluation utilities
+│   ├── agents/            # Agent implementations
+│   │   ├── intake.py      # IntakeAgent - HPI structuring
+│   │   ├── imaging.py     # ImagingAgent - X-ray analysis
+│   │   ├── reasoning.py   # ReasoningAgent - Differential Dx
+│   │   ├── guidelines.py  # GuidelinesAgent - RAG
+│   │   ├── education.py   # PatientEducationAgent - Health literacy
+│   │   └── orchestrator.py # PrimaCareOrchestrator
+│   └── edge/              # Edge AI module
+│       ├── inference.py   # EdgeClassifier (ONNX CPU)
+│       ├── quantize.py    # ONNX export + INT8 quantization
+│       └── benchmark.py   # Latency/accuracy benchmarks
 ├── data/
 │   └── guidelines/        # Clinical guidelines for RAG
-│       └── chunks.json    # 47 guideline chunks
 ├── app/
-│   └── demo.py            # Gradio demo application
+│   └── demo.py            # Gradio demo (7 tabs)
 ├── scripts/
-│   └── prepare_guidelines.py  # Embedding generation script
+│   ├── prepare_guidelines.py    # Embedding generation
+│   ├── export_edge_model.py     # ONNX export script
+│   └── run_edge_benchmark.py    # Benchmark runner
 ├── submission/
-│   ├── writeup.md         # Competition writeup
+│   ├── writeup.md         # Competition writeup (all 4 tracks)
 │   └── video/             # Video demo materials
-└── requirements.txt       # Python dependencies
+├── tests/                 # 42 tests, all mock-based
+└── requirements.txt
 ```
 
 ## Deployment
 
 ### Requirements
 
-- **GPU**: NVIDIA T4 (16GB VRAM) minimum, recommended for Kaggle
+- **GPU**: NVIDIA T4 (16GB VRAM) for full pipeline
+- **CPU**: Any modern CPU for edge classifier
 - **Memory**: 16GB+ system RAM
-- **Storage**: ~15GB for models
 - **Python**: 3.10+
-
-### Option 1: Kaggle Notebooks (Recommended)
-
-1. Upload `notebooks/04-agentic-workflow.ipynb` to Kaggle
-2. Add your `HF_TOKEN` as a Kaggle secret
-3. Enable GPU accelerator (T4 x2 or P100)
-4. Run all cells
-
-### Option 2: Local Setup
-
-```bash
-# Clone repository
-git clone https://github.com/thestai-admin/Med-Gemma.git
-cd Med-Gemma
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# or: venv\Scripts\activate  # Windows
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Set HuggingFace token
-export HF_TOKEN=your_token_here
-
-# Run Gradio demo
-python app/demo.py
-```
-
-### Option 3: Google Colab
-
-1. Open notebook in Colab
-2. Change runtime to GPU (T4)
-3. Add HF_TOKEN to Colab secrets
-4. Run all cells
 
 ### Model Requirements
 
-| Model | Size | VRAM |
-|-------|------|------|
-| MedGemma 1.5 4B | ~8GB | ~10GB |
-| MedSigLIP | ~3.5GB | ~4GB |
-| sentence-transformers | ~90MB | CPU |
-
-**Total VRAM**: ~14GB (fits on T4 16GB)
-
-## Competition Details
-
-- **Prize Pool**: $100,000
-- **Deadline**: February 24, 2026
-- **Target Tracks**:
-  - Main Track ($10K-$30K)
-  - Agentic Workflow Prize ($5K)
+| Model | Size | VRAM | Deployment |
+|-------|------|------|------------|
+| MedGemma 1.5 4B | ~8GB | ~10GB | GPU only |
+| MedSigLIP | ~3.5GB | ~4GB | GPU or Edge (ONNX) |
+| MedSigLIP INT8 | ~500MB | CPU | Edge only |
+| sentence-transformers | ~90MB | CPU | CPU |
 
 ## Resources
 

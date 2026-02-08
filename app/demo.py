@@ -100,111 +100,29 @@ def run_longitudinal_comparison(
         return f"Error running longitudinal comparison: {str(e)}"
 
 
-def run_volumetric_analysis(
-    ct_files,
-    modality: str,
-    body_region: str,
-    clinical_context: str,
+def run_patient_education(
+    report_text: str,
+    reading_level: str,
 ) -> str:
-    """Run volumetric CT/MRI analysis."""
-    if ct_files is None or len(ct_files) == 0:
-        return "Please upload CT/MRI slice images."
+    """Generate patient-friendly education from a clinical report."""
+    if not report_text.strip():
+        return "Please paste a clinical report first."
 
-    orchestrator = get_orchestrator()
-
-    try:
-        from src.agents.volumetric import VolumetricModality
-
-        # Load images from uploaded files
-        images = []
-        for f in ct_files:
-            img = Image.open(f.name)
-            images.append(img)
-
-        # Map modality string to enum
-        mod_enum = VolumetricModality.CT if modality == "CT" else VolumetricModality.MRI
-
-        result = orchestrator.run_volumetric(
-            volume=images,
-            modality=mod_enum,
-            clinical_context=clinical_context if clinical_context.strip() else None,
-            body_region=body_region.lower(),
-            num_slices=min(6, len(images)),
-        )
-        return result.to_prompt_context()
-    except Exception as e:
-        return f"Error running volumetric analysis: {str(e)}"
-
-
-def run_ehr_query(
-    question: str,
-    fhir_json: str,
-) -> tuple:
-    """Query EHR data."""
-    if not question.strip():
-        return "Please enter a question.", ""
-
-    if not fhir_json.strip():
-        return "Please provide FHIR data (JSON format).", ""
-
-    orchestrator = get_orchestrator()
+    model = get_model()
 
     try:
-        import json
-        fhir_bundle = json.loads(fhir_json)
+        from src.agents.education import PatientEducationAgent
+        from unittest.mock import Mock
 
-        result = orchestrator.query_ehr(
-            question=question,
-            fhir_bundle=fhir_bundle,
-        )
+        # Create a mock result that returns the pasted report text
+        mock_result = Mock()
+        mock_result.to_report.return_value = report_text
 
-        # Get patient summary
-        summary = orchestrator.get_ehr_patient_summary(fhir_bundle)
-
-        return result.to_prompt_context(), summary
-    except json.JSONDecodeError:
-        return "Error: Invalid JSON format for FHIR data.", ""
+        agent = PatientEducationAgent(model=model)
+        education = agent.educate(mock_result, reading_level=reading_level.lower())
+        return education.to_report_section()
     except Exception as e:
-        return f"Error querying EHR: {str(e)}", ""
-
-
-def run_pathology_analysis(
-    image: Image.Image,
-    tissue_type: str,
-    clinical_context: str,
-) -> str:
-    """Run pathology image analysis."""
-    if image is None:
-        return "Please upload a pathology image."
-
-    orchestrator = get_orchestrator()
-
-    try:
-        from src.agents.pathology import TissueType
-
-        # Map tissue type string to enum
-        tissue_map = {
-            "Breast": TissueType.BREAST,
-            "Lung": TissueType.LUNG,
-            "Colon": TissueType.COLON,
-            "Prostate": TissueType.PROSTATE,
-            "Skin": TissueType.SKIN,
-            "Liver": TissueType.LIVER,
-            "Kidney": TissueType.KIDNEY,
-            "Lymph Node": TissueType.LYMPH_NODE,
-            "General": TissueType.GENERAL,
-        }
-        tissue_enum = tissue_map.get(tissue_type, TissueType.GENERAL)
-
-        result = orchestrator.run_pathology(
-            image_or_wsi=image,
-            tissue_type=tissue_enum,
-            clinical_context=clinical_context if clinical_context.strip() else None,
-            is_wsi=False,
-        )
-        return result.to_prompt_context()
-    except Exception as e:
-        return f"Error running pathology analysis: {str(e)}"
+        return f"Error generating patient education: {str(e)}"
 
 
 # =============================================================================
@@ -449,7 +367,8 @@ def create_demo():
         **MedGemma Impact Challenge Demo** | *Agentic Workflow Prize Submission*
 
         Multi-agent diagnostic support system for primary care physicians.
-        Combines patient history structuring, chest X-ray analysis, and clinical reasoning.
+        Combines patient history structuring, chest X-ray analysis, clinical reasoning,
+        and patient-friendly education output.
 
         > **Disclaimer:** This is a research demonstration. All outputs require clinical
         > verification by qualified healthcare professionals before any clinical use.
@@ -461,11 +380,12 @@ def create_demo():
                 gr.Markdown("""
                 ### Multi-Agent Diagnostic Support
 
-                This pipeline uses four AI agents working together:
+                This pipeline uses five AI agents working together:
                 1. **Intake Agent** - Structures patient history into HPI format
                 2. **Imaging Agent** - Analyzes chest X-ray (if provided)
                 3. **Reasoning Agent** - Generates differential diagnosis and recommendations
                 4. **Guidelines Agent** - Retrieves evidence-based clinical guidelines (RAG)
+                5. **Education Agent** - Translates findings into patient-friendly language
                 """)
 
                 with gr.Row():
@@ -729,152 +649,44 @@ def create_demo():
                     outputs=[longitudinal_output],
                 )
 
-            # Tab 6: CT/MRI Analysis (NEW)
-            with gr.TabItem("CT/MRI Analysis"):
+            # Tab 6: Patient Education (Novel Task)
+            with gr.TabItem("Patient Education"):
                 gr.Markdown("""
-                ### Volumetric CT/MRI Analysis
+                ### Patient-Friendly Education Generator
 
-                Analyze CT or MRI studies by uploading individual slice images.
-                The system will sample representative slices and synthesize findings.
+                Converts technical clinical reports into patient-friendly language
+                at different reading levels. Addresses health literacy gaps that
+                affect ~36% of US adults.
 
-                **Note:** Upload up to 20 slice images (PNG/JPG). The system will
-                automatically sample 6 representative slices for analysis.
+                **How to use:** Paste a clinical report (or copy from the Agentic Pipeline tab),
+                choose a reading level, and generate patient-friendly education.
                 """)
 
                 with gr.Row():
                     with gr.Column(scale=1):
-                        ct_upload = gr.File(
-                            label="Upload CT/MRI Slices",
-                            file_count="multiple",
-                            file_types=["image"],
-                        )
-                        with gr.Row():
-                            modality_select = gr.Dropdown(
-                                choices=["CT", "MRI"],
-                                value="CT",
-                                label="Modality",
-                            )
-                            region_select = gr.Dropdown(
-                                choices=["Chest", "Abdomen", "Head"],
-                                value="Chest",
-                                label="Body Region",
-                            )
-                        vol_context = gr.Textbox(
-                            label="Clinical Context",
-                            placeholder="e.g., 55yo with abdominal pain",
-                            lines=2,
-                        )
-                        vol_btn = gr.Button("Analyze Volume", variant="primary", size="lg")
-
-                    with gr.Column(scale=1):
-                        vol_output = gr.Textbox(
-                            label="Volumetric Analysis",
-                            lines=20,
-                            show_copy_button=True,
-                        )
-
-                vol_btn.click(
-                    run_volumetric_analysis,
-                    inputs=[ct_upload, modality_select, region_select, vol_context],
-                    outputs=[vol_output],
-                )
-
-            # Tab 7: EHR Navigator (NEW)
-            with gr.TabItem("EHR Navigator"):
-                gr.Markdown("""
-                ### EHR/FHIR Navigator
-
-                Query patient EHR data using natural language questions.
-                Paste FHIR-formatted JSON data to analyze patient records.
-                """)
-
-                with gr.Row():
-                    with gr.Column(scale=1):
-                        ehr_question = gr.Textbox(
-                            label="Ask about patient's EHR",
-                            placeholder="e.g., What medications is the patient taking?",
-                            lines=2,
-                        )
-                        ehr_json = gr.Textbox(
-                            label="FHIR Data (JSON)",
-                            placeholder='Paste FHIR Bundle JSON here...\n{\n  "resourceType": "Bundle",\n  "entry": [...]\n}',
-                            lines=10,
-                        )
-                        ehr_btn = gr.Button("Query EHR", variant="primary", size="lg")
-
-                    with gr.Column(scale=1):
-                        ehr_output = gr.Textbox(
-                            label="Query Results",
+                        edu_report_input = gr.Textbox(
+                            label="Clinical Report Text",
+                            placeholder="Paste clinical report here...",
                             lines=12,
-                            show_copy_button=True,
                         )
-                        ehr_summary = gr.Textbox(
-                            label="Patient Summary",
-                            lines=8,
-                            show_copy_button=True,
+                        edu_level = gr.Dropdown(
+                            choices=["Basic", "Intermediate", "Detailed"],
+                            value="Basic",
+                            label="Reading Level",
                         )
-
-                ehr_btn.click(
-                    run_ehr_query,
-                    inputs=[ehr_question, ehr_json],
-                    outputs=[ehr_output, ehr_summary],
-                )
-
-                # Example FHIR query
-                gr.Examples(
-                    examples=[
-                        ["What are the patient's active conditions?"],
-                        ["List all current medications."],
-                        ["Does the patient have any allergies?"],
-                        ["What was the most recent lab result?"],
-                    ],
-                    inputs=[ehr_question],
-                )
-
-            # Tab 8: Pathology Analysis (NEW)
-            with gr.TabItem("Pathology"):
-                gr.Markdown("""
-                ### Histopathology Analysis
-
-                Analyze pathology images for microscopic findings.
-                Supports H&E stained tissue images from various organ systems.
-
-                **Note:** For whole slide images (.svs, .ndpi), the system requires
-                OpenSlide. For demo purposes, upload pre-extracted tiles or
-                low-resolution overview images.
-                """)
-
-                with gr.Row():
-                    with gr.Column(scale=1):
-                        path_image = gr.Image(
-                            label="Upload Pathology Image",
-                            type="pil",
-                            height=300,
-                        )
-                        tissue_type = gr.Dropdown(
-                            choices=["Breast", "Lung", "Colon", "Prostate", "Skin",
-                                    "Liver", "Kidney", "Lymph Node", "General"],
-                            value="General",
-                            label="Tissue Type",
-                        )
-                        path_context = gr.Textbox(
-                            label="Clinical Context",
-                            placeholder="e.g., Breast biopsy, suspicious mass on imaging",
-                            lines=2,
-                        )
-                        path_btn = gr.Button("Analyze Pathology", variant="primary", size="lg")
+                        edu_btn = gr.Button("Generate Patient Education", variant="primary", size="lg")
 
                     with gr.Column(scale=1):
-                        path_output = gr.Textbox(
-                            label="Pathology Analysis",
+                        edu_output = gr.Textbox(
+                            label="Patient-Friendly Education",
                             lines=20,
                             show_copy_button=True,
                         )
 
-                path_btn.click(
-                    run_pathology_analysis,
-                    inputs=[path_image, tissue_type, path_context],
-                    outputs=[path_output],
+                edu_btn.click(
+                    run_patient_education,
+                    inputs=[edu_report_input, edu_level],
+                    outputs=[edu_output],
                 )
 
         gr.Markdown("""

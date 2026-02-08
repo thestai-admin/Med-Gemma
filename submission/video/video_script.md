@@ -1,114 +1,70 @@
-# PrimaCare AI - Video Demo Script (3 Minutes)
+# PrimaCare AI - Video Script (All 4 Tracks)
 
-## Overview
-Total Duration: 3:00
-Format: Screen recording with voiceover
+## Duration
+3:00 target
 
----
+## 0:00-0:20 Problem Statement
+"Primary care clinicians face three challenges: delayed radiology support for chest X-rays, a health literacy gap affecting 36% of US adults, and lack of AI infrastructure in resource-limited settings. PrimaCare AI addresses all three with a unified system built on MedGemma and MedSigLIP."
 
-## SECTION 1: Problem Statement (0:00 - 0:30)
+## 0:20-0:50 Architecture
+Show 5-agent pipeline diagram:
+- IntakeAgent -> ImagingAgent -> ReasoningAgent -> GuidelinesAgent -> EducationAgent
+- Orchestrator with lazy loading, profiling, parallel execution, fast mode
 
-### Visuals
-- Title slide: "PrimaCare AI: Multimodal Diagnostic Support"
-- Statistics slide with key numbers
+Show tiered deployment diagram:
+- Edge (CPU): MedSigLIP ONNX INT8 for pneumonia screening
+- Cloud (GPU): Full 5-agent pipeline with MedGemma
 
-### Script
-> "Every year, over 500 million patients visit primary care physicians in the United States. These physicians are expected to diagnose conditions across every organ system - but they have only 15 to 20 minutes per patient.
->
-> Chest X-rays are one of the most common tests ordered in primary care, but many physicians don't have immediate radiology support. Studies show interpretation errors can reach 20-30%.
->
-> Today I'll show you PrimaCare AI - a multi-agent diagnostic support system built on MedGemma that helps primary care physicians make faster, more accurate diagnoses."
+Narration:
+"Five agents coordinate through a central orchestrator. For resource-limited settings, a quantized edge classifier provides CPU-only pneumonia screening, triaging cases that need the full cloud pipeline."
 
----
+## 0:50-1:30 Demo: Full Pipeline
+- Enter clinical history: "65yo male smoker, cough for 2 weeks with fever"
+- Upload chest X-ray
+- Run full pipeline with `include_education=True`
+- Show output sections: structured HPI, imaging analysis, differential diagnosis, guideline recommendations
 
-## SECTION 2: Architecture Overview (0:30 - 1:00)
+Narration:
+"Each stage is explicit and reviewable. The orchestrator chains structured data between agents - patient context flows to imaging, imaging flows to reasoning, reasoning to guidelines."
 
-### Visuals
-- Architecture diagram showing 4 agents
-- Flow: Patient → IntakeAgent → ImagingAgent → ReasoningAgent → Output
+## 1:30-1:55 Demo: Patient Education (Novel Task)
+- Show education output at basic level: simplified diagnosis, what it means, next steps, glossary
+- Switch to detailed level to show the contrast
+- Highlight glossary of medical terms
 
-### Script
-> "PrimaCare AI uses four specialized agents that mirror how clinicians actually think.
->
-> First, the IntakeAgent structures the patient's story - identifying red flags and organizing symptoms into a formal history.
->
-> Second, the ImagingAgent uses MedGemma 1.5 4B to analyze chest X-rays - it provides both zero-shot classification with MedSigLIP and detailed findings with MedGemma.
->
-> Third, the ReasoningAgent integrates everything - generating a differential diagnosis and recommending next steps.
->
-> Finally, an Orchestrator coordinates everything, whether you have just text, just an image, or both."
+Narration:
+"The PatientEducationAgent converts the technical report into language a 6th grader can understand. Three reading levels match diverse health literacy needs. The glossary defines every medical term used."
 
----
+## 1:55-2:20 Demo: Edge AI
+- Show edge classifier running on CPU
+- Display classification result: normal vs pneumonia with probabilities
+- Show benchmark comparison table: GPU vs Edge (latency, model size, accuracy)
 
-## SECTION 3: Live Demo (1:00 - 2:30)
+Narration:
+"For clinics without GPU infrastructure, we export MedSigLIP to ONNX and quantize to INT8. The edge classifier runs on any CPU, providing fast pneumonia screening that triages cases to the full pipeline."
 
-### Visuals
-- Gradio interface
-- Upload image, enter text, show results
+## 2:20-2:45 Metrics
+Display results table:
 
-### Demo Flow
+Binary pneumonia (100 samples):
+- Accuracy 76.0%, Recall 98.0%, F1 0.803
 
-**Step 1: Launch Demo (1:00 - 1:10)**
-> "Let's see it in action. Here's our Gradio interface deployed from Kaggle."
+Pipeline latency (Kaggle T4):
+- Total 111s, suitable for asynchronous decision support
 
-**Step 2: Enter Clinical Context (1:10 - 1:30)**
-> "I'll enter a typical primary care scenario: A 58-year-old male smoker presenting with two weeks of productive cough and mild shortness of breath."
+Test coverage:
+- 42 tests passing, all using mocks (no GPU needed)
 
-*Type:* "58 year old male, 30 pack-year smoking history, presenting with productive cough for 2 weeks, mild dyspnea on exertion, no fever"
+Narration:
+"Binary mode achieves 98% recall for pneumonia detection. We include threshold sweep utilities and bootstrap confidence intervals for transparent evaluation."
 
-**Step 3: Upload X-ray (1:30 - 1:45)**
-> "Now I'll upload a chest X-ray for analysis."
-
-*Upload sample chest X-ray*
-
-**Step 4: Run Analysis (1:45 - 2:00)**
-> "Let's run the full consultation."
-
-*Click analyze button*
-
-**Step 5: Show Results (2:00 - 2:30)**
-> "Look at the output - the IntakeAgent has structured the history with red flags highlighted.
->
-> The ImagingAgent shows the MedSigLIP classification - and here are the detailed findings from MedGemma.
->
-> The ReasoningAgent synthesizes everything into a ranked differential diagnosis with recommended workup - labs, additional imaging, and specialist referral if needed.
->
-> This entire analysis took less than a minute."
-
----
-
-## SECTION 4: Impact & Closing (2:30 - 3:00)
-
-### Visuals
-- Impact statistics
-- GitHub link
-- Closing slide
-
-### Script
-> "PrimaCare AI can save physicians over an hour per day by automating history structuring and providing instant X-ray analysis.
->
-> It's particularly impactful in resource-limited settings where radiology support isn't immediately available.
->
-> The system runs entirely on Kaggle's free T4 GPU, making it accessible to anyone.
->
-> All code is available on GitHub. Thank you for watching - let's bring AI-powered diagnostic support to the frontlines of healthcare."
-
-*Show GitHub URL: github.com/thestai-admin/Med-Gemma*
-
----
+## 2:45-3:00 Close
+"PrimaCare AI is clinician decision support, not autonomous diagnosis. Our contribution is a reproducible 5-agent CXR workflow with patient education for health literacy, edge deployment for resource equity, and transparent evaluation with measurable performance. All code is public."
 
 ## Recording Checklist
-
-- [ ] Test Gradio demo is working
-- [ ] Prepare sample chest X-ray image
-- [ ] Practice voiceover timing
-- [ ] Record screen at 1080p
-- [ ] Check audio quality
-- [ ] Keep under 3:00
-
-## Technical Notes
-
-- Use 04-agentic-workflow.ipynb to launch Gradio demo
-- Ensure Kaggle GPU is enabled
-- Have backup screenshots in case of issues
-- Consider recording in segments and editing together
+- [ ] Run notebook with education enabled, capture all 5 stages
+- [ ] Show education output at basic and detailed levels
+- [ ] Show edge classifier output and benchmark table
+- [ ] Display final metrics table from notebook
+- [ ] Keep all statements aligned with displayed numbers
+- [ ] Total time under 3:00

@@ -1,197 +1,116 @@
-# PrimaCare AI: Multimodal Diagnostic Support for Primary Care
-
-## Project Name
-**PrimaCare AI** - An agentic multimodal diagnostic support system for primary care physicians
+# PrimaCare AI: Multi-Agent CXR Diagnostic Support with Patient Education and Edge Deployment
 
 ## Team
-Solo submission - Internal Medicine / Primary Care physician with ML/AI experience
-
----
+Solo submission
 
 ## Problem Statement
 
-Primary care physicians are the frontline of healthcare, handling over **500 million visits annually** in the United States alone. They face unique challenges:
+Primary care physicians face three interconnected challenges:
 
-**The Diagnostic Gap:**
-- Primary care physicians are expected to diagnose across ALL organ systems
-- Average appointment time is only 15-20 minutes per patient
-- Chest X-rays are frequently ordered but interpreted without radiology support
-- Subtle findings are missed, leading to delayed diagnoses and worse outcomes
+1. **CXR interpretation bottleneck**: Immediate radiology support is often unavailable, delaying diagnosis for conditions like pneumonia where early treatment improves outcomes.
+2. **Health literacy gap**: ~36% of US adults have limited health literacy (NAAL). Technical radiology reports are incomprehensible to most patients, leading to worse adherence and outcomes.
+3. **Resource-limited settings**: Rural and underserved clinics lack GPU infrastructure for AI-assisted diagnostics, creating care disparities.
 
-**Real-World Impact:**
-- A 2019 study found that diagnostic errors occur in approximately 5% of outpatient visits
-- Chest X-ray interpretation errors in primary care range from 20-30%
-- Early detection of conditions like pneumonia, heart failure, or malignancy can be life-saving
+PrimaCare AI addresses all three with a unified system: a 5-agent diagnostic pipeline, patient education at multiple reading levels, and an edge-deployable screening classifier.
 
-**The Unmet Need:**
-Primary care physicians need a **second opinion** - an intelligent system that can:
-1. Help structure patient presentations systematically
-2. Analyze chest X-rays for common pathologies
-3. Generate differential diagnoses that integrate clinical and imaging findings
-4. Suggest evidence-based workup plans
+## Solution Overview
 
-This is especially critical in **resource-limited settings** where radiologist access is limited or turnaround times are long.
-
----
-
-## Overall Solution
-
-PrimaCare AI is a **multi-agent diagnostic support system** built on MedGemma 1.5 4B and MedSigLIP, designed to augment primary care clinical decision-making.
-
-### Architecture: Four Specialized Agents
+### Architecture: 5-Agent Pipeline
 
 ```
-Patient Presentation → IntakeAgent → ImagingAgent → ReasoningAgent → Clinical Output
-                           ↓              ↓              ↓
-                       Structured      X-ray         Differential
-                         HPI         Analysis        + Workup
+Patient -> IntakeAgent -> ImagingAgent -> ReasoningAgent -> GuidelinesAgent -> EducationAgent -> Report
+              |               |               |                 |                  |
+         Structured       CXR Analysis    Differential     Evidence-Based     Patient-Friendly
+         HPI + Flags    + Classification   + Workup       Recommendations      Education
 ```
 
-**1. IntakeAgent (History Structuring)**
-- Converts unstructured patient complaints into formal HPI format
-- Identifies red flag symptoms requiring urgent attention
-- Extracts pertinent positives and negatives
-- *Example: "65yo smoker, cough x2 weeks, weight loss" → Structured HPI with cancer red flags identified*
+**Orchestrator** (`PrimaCareOrchestrator`) coordinates all agents with:
+- Lazy model loading and model sharing across agents
+- Parallel execution mode (intake + imaging concurrent)
+- Per-stage profiling with `profile=True`
+- Fast mode for reduced latency (skips guidelines, switches to binary classification)
 
-**2. ImagingAgent (Chest X-ray Analysis)**
-- Uses MedGemma for detailed radiographic findings
-- Uses MedSigLIP for zero-shot classification of 9 common pathologies
-- Provides systematic interpretation: technical quality, findings by region, impression
-- *Labels: normal, pneumonia, pleural effusion, cardiomegaly, pulmonary edema, atelectasis, pneumothorax, consolidation, mass/nodule*
+### HAI-DEF Models Used
 
-**3. ReasoningAgent (Clinical Integration)**
-- Synthesizes clinical history with imaging findings
-- Generates ranked differential diagnosis
-- Suggests evidence-based diagnostic workup
-- *Considers patient demographics, risk factors, and imaging pattern*
+| Model | Role | Deployment |
+|-------|------|------------|
+| MedGemma 1.5 4B | Image analysis, reasoning, education, guidelines synthesis | GPU (T4) |
+| MedSigLIP 448 | Zero-shot CXR classification (multilabel, binary, ensemble) | GPU or Edge (ONNX) |
+| all-MiniLM-L6-v2 | Guidelines embedding for RAG retrieval | CPU |
 
-**4. Orchestrator (Workflow Coordination)**
-- Coordinates agent execution based on available inputs
-- Handles text-only, image-only, or combined consultations
-- Manages agent handoffs and output formatting
+### Tiered Deployment: Edge Screening + Cloud Analysis
 
-### Why This Approach?
-
-The agentic architecture mirrors real clinical reasoning:
-- History is structured before interpretation (like a good clinician)
-- Imaging is analyzed systematically (like a radiologist)
-- Integration happens last (like a diagnostic conference)
-
-This separation allows each component to be optimized independently while maintaining clinical workflow fidelity.
-
----
+```
+[Edge Tier - CPU Only]                    [Cloud Tier - GPU]
+MedSigLIP ONNX INT8 ──> Pneumonia? ──Y──> Full 5-Agent Pipeline
+       |                                        |
+       └──── Normal (high confidence) ──> Done  └──> Full Report + Education
+```
 
 ## Technical Details
 
-### Model Configuration
+### Agentic Workflow (5 Agents)
 
-**MedGemma 1.5 4B IT** (`google/medgemma-1.5-4b-it`)
-- Multimodal capability: chest X-ray + text
-- BFloat16 precision for T4 GPU compatibility
-- Direct model usage (AutoModelForImageTextToText) for stability
-- 128K context window for comprehensive history intake
+1. **IntakeAgent**: Structures free-text history into formal HPI with red flag detection and urgency scoring
+2. **ImagingAgent**: MedGemma systematic CXR analysis + MedSigLIP classification with 3 modes (multilabel, binary, ensemble)
+3. **ReasoningAgent**: Differential diagnosis, workup recommendations, disposition, and risk stratification
+4. **GuidelinesAgent**: RAG over clinical practice guidelines using semantic retrieval (sentence-transformers) with keyword fallback
+5. **PatientEducationAgent** (Novel): Converts technical reports into patient-friendly language at 3 reading levels (basic/6th grade, intermediate, detailed) with medical term glossary
 
-**MedSigLIP** (`google/medsiglip-448`)
-- Zero-shot image classification
-- 9 chest X-ray pathology labels
-- Provides probability distribution for triage
+### Novel Task: Patient Education
 
-### Key Implementation Details
+The PatientEducationAgent addresses health literacy by:
+- Translating clinical reports into 3 reading levels matching diverse patient needs
+- Generating structured output: simplified diagnosis, what it means, next steps, when to seek help
+- Building a glossary of medical terms with plain-language definitions
+- Integrating into the pipeline via `include_education=True` or standalone via the Gradio demo
 
-```python
-# Critical: Disable torch dynamo BEFORE imports
-import os
-os.environ["TORCHDYNAMO_DISABLE"] = "1"
+### Edge AI: CPU-Only Screening
 
-# Direct model loading (not pipeline)
-from transformers import AutoProcessor, AutoModelForImageTextToText
+The edge module enables pneumonia screening without GPU:
+- **Export**: MedSigLIP vision encoder exported to ONNX via `torch.onnx.export()`
+- **Quantize**: INT8 dynamic quantization via `onnxruntime.quantization`
+- **Inference**: `EdgeClassifier` runs on CPU with pre-computed text embeddings
+- **API parity**: `classify_pneumonia()` returns same format as `MedSigLIP.classify()`
 
-model = AutoModelForImageTextToText.from_pretrained(
-    "google/medgemma-1.5-4b-it",
-    torch_dtype=torch.bfloat16,
-    device_map="cuda",
-)
-processor = AutoProcessor.from_pretrained("google/medgemma-1.5-4b-it")
-```
+## Quantitative Results
 
-**Design Decisions:**
-1. **Direct model usage over pipeline**: Avoids torch dynamo compilation errors on Kaggle T4
-2. **BFloat16 precision**: Balances memory and accuracy
-3. **Deterministic generation**: `do_sample=False` for reproducible outputs
-4. **RGB conversion**: Ensures compatibility with medical image formats
+### Binary Pneumonia Classification (MedSigLIP, 100 samples)
 
-### Performance
+| Mode | Accuracy | Precision | Recall | Specificity | F1 |
+|------|----------|-----------|--------|-------------|-----|
+| 10-label | 53.0% | 71.4% | 10.0% | 96.0% | 0.175 |
+| **Binary** | **76.0%** | **68.1%** | **98.0%** | **54.0%** | **0.803** |
 
-Tested on Kaggle Tesla T4 GPU (from `04-agentic-workflow.ipynb` benchmark/evaluation cells):
-- Model loading: ~2-3 minutes
-- Single X-ray analysis: ~10-15 seconds
-- Full consultation (all agents): ~111.0 seconds end-to-end
-- Memory usage: ~8GB VRAM
+### Pipeline Latency (Kaggle T4)
 
-**Classification Evaluation (pneumonia task):**
-- Multi-label setup (10 labels): Accuracy 53.0%, F1 0.175
-- Binary setup (normal vs pneumonia): Accuracy 76.0%, F1 0.803
+| Stage | Time |
+|-------|------|
+| Intake | 23.3s |
+| Imaging | 16.9s |
+| Reasoning | 38.0s |
+| Guidelines | 32.9s |
+| **Total** | **111.0s** |
 
-### Deployment
+Suitable for asynchronous decision support. Fast mode reduces latency by skipping guidelines and using binary classification.
 
-The system includes a **Gradio interface** for interactive demonstrations:
-- Upload chest X-ray images
-- Enter clinical history in natural language
-- Receive structured diagnostic output
-- Deployable with public URL for sharing
+## Evaluation Methodology
 
----
+- Deterministic evaluation utilities in `src/eval/cxr_eval.py`
+- Confusion matrix, binary metrics, threshold sweeps, bootstrap CIs
+- Edge benchmarking with latency and memory profiling (`src/edge/benchmark.py`)
+- All tests run locally without GPU (42 passed, 1 skipped)
 
-## Impact Potential
+## Limitations
 
-### Quantifiable Benefits
-
-**Time Savings:**
-- Reduces X-ray interpretation time from 5-10 minutes to under 1 minute
-- Automates HPI structuring (saves 2-3 minutes per patient)
-- At 20 patients/day: **60-120 minutes saved daily per physician**
-
-**Accuracy Improvement:**
-- Zero-shot classification provides immediate triage
-- Systematic analysis reduces missed findings
-- Second-opinion function catches subtle abnormalities
-- Binary prompting materially improves pneumonia sensitivity in our benchmark (Recall 98.0% vs 10.0% multi-label)
-
-**Scale:**
-- 500M+ primary care visits annually in US
-- Even 1% improvement = 5 million better outcomes
-- Particularly impactful in rural/underserved areas
-
-### Target Users
-
-1. **Primary Care Physicians** - Initial diagnostic support
-2. **Urgent Care Centers** - Rapid triage decisions
-3. **Resource-Limited Settings** - Where radiology access is delayed
-4. **Medical Education** - Teaching systematic X-ray interpretation
-
-### Ethical Considerations
-
-- All outputs include disclaimer for clinical verification
-- Not intended to replace physician judgment
-- Designed as decision support, not autonomous diagnosis
-- Patient privacy maintained (no data leaves local environment)
-
----
-
-## Conclusion
-
-PrimaCare AI demonstrates how MedGemma can transform primary care diagnostics through an agentic, multimodal approach. By structuring clinical reasoning into specialized agents, the system provides interpretable, clinically-relevant support at the point of care.
-
-The solution is:
-- **Technically sound**: Validated on Kaggle T4, handles edge cases
-- **Clinically grounded**: Designed by a practicing physician
-- **Immediately deployable**: Gradio demo with public URL
-- **Highly impactful**: Addresses a gap affecting millions of patients
-
----
+- Evaluation is small-sample (100 images); larger validation needed
+- Specificity-recall tradeoff requires clinical objective selection
+- Education quality is qualitative; formal readability testing recommended
+- Edge accuracy may degrade with INT8 quantization; documented transparently
 
 ## Resources
 
-- **Code Repository**: https://github.com/thestai-admin/Med-Gemma
-- **Live Demo**: Available via Gradio (04-agentic-workflow.ipynb)
-- **Notebooks**: Fully executable on Kaggle with T4 GPU
+- Submission notebook: `notebooks/05-cxr-first-submission.ipynb`
+- Core code: `src/agents/`, `src/edge/`, `src/eval/`
+- Demo: `app/demo.py` (7 tabs including education)
+- Repository: Public on GitHub

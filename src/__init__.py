@@ -4,8 +4,8 @@ Core source code for the MedGemma Impact Challenge competition entry.
 
 Modules:
 - model: HAI-DEF model wrappers (MedGemma, MedSigLIP)
-- data: Data loading utilities for medical datasets
-- inference: High-level inference pipeline
+- agents: Multi-agent diagnostic pipeline
+- eval: Reproducible CXR evaluation utilities
 """
 
 __version__ = "0.1.0"
@@ -20,21 +20,21 @@ __all__ = [
     "PROMPTS",
     "get_medgemma",
     "get_medsiglip",
-    # Data
-    "NIHChestXray",
-    "ChestXrayPneumonia",
-    "MedQA",
-    "DatasetIDs",
-    "get_sample_chest_xrays",
-    "get_sample_medical_questions",
-    # Inference
-    "MedicalImageAnalyzer",
-    "AnalysisType",
-    "AnalysisResult",
-    "ChestXrayReport",
-    "analyze_chest_xray",
-    "generate_xray_report",
-    "ask_medical_question",
+    # Evaluation
+    "ConfusionCounts",
+    "EvalMetrics",
+    "ThresholdResult",
+    "LatencyMetrics",
+    "confusion_counts",
+    "compute_binary_metrics",
+    "evaluate_scores",
+    "sweep_thresholds",
+    "select_threshold",
+    "bootstrap_metric_ci",
+    "profile_orchestrator_latency",
+    # Edge AI
+    "EdgeClassifier",
+    "EdgeBenchmarkResult",
 ]
 
 
@@ -46,21 +46,21 @@ _LAZY_EXPORTS = {
     "PROMPTS": ("src.model", "PROMPTS"),
     "get_medgemma": ("src.model", "get_medgemma"),
     "get_medsiglip": ("src.model", "get_medsiglip"),
-    # Data
-    "NIHChestXray": ("src.data", "NIHChestXray"),
-    "ChestXrayPneumonia": ("src.data", "ChestXrayPneumonia"),
-    "MedQA": ("src.data", "MedQA"),
-    "DatasetIDs": ("src.data", "DatasetIDs"),
-    "get_sample_chest_xrays": ("src.data", "get_sample_chest_xrays"),
-    "get_sample_medical_questions": ("src.data", "get_sample_medical_questions"),
-    # Inference
-    "MedicalImageAnalyzer": ("src.inference", "MedicalImageAnalyzer"),
-    "AnalysisType": ("src.inference", "AnalysisType"),
-    "AnalysisResult": ("src.inference", "AnalysisResult"),
-    "ChestXrayReport": ("src.inference", "ChestXrayReport"),
-    "analyze_chest_xray": ("src.inference", "analyze_chest_xray"),
-    "generate_xray_report": ("src.inference", "generate_xray_report"),
-    "ask_medical_question": ("src.inference", "ask_medical_question"),
+    # Evaluation
+    "ConfusionCounts": ("src.eval", "ConfusionCounts"),
+    "EvalMetrics": ("src.eval", "EvalMetrics"),
+    "ThresholdResult": ("src.eval", "ThresholdResult"),
+    "LatencyMetrics": ("src.eval", "LatencyMetrics"),
+    "confusion_counts": ("src.eval", "confusion_counts"),
+    "compute_binary_metrics": ("src.eval", "compute_binary_metrics"),
+    "evaluate_scores": ("src.eval", "evaluate_scores"),
+    "sweep_thresholds": ("src.eval", "sweep_thresholds"),
+    "select_threshold": ("src.eval", "select_threshold"),
+    "bootstrap_metric_ci": ("src.eval", "bootstrap_metric_ci"),
+    "profile_orchestrator_latency": ("src.eval", "profile_orchestrator_latency"),
+    # Edge AI
+    "EdgeClassifier": ("src.edge", "EdgeClassifier"),
+    "EdgeBenchmarkResult": ("src.edge", "EdgeBenchmarkResult"),
 }
 
 
