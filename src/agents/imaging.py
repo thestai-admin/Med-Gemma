@@ -60,6 +60,8 @@ class ImageAnalysis:
     findings: List[ImagingFinding] = field(default_factory=list)
     impression: str = ""
     classification_probs: Dict[str, float] = field(default_factory=dict)
+    classification_mode: str = "none"
+    classification_details: Dict[str, Any] = field(default_factory=dict)
     raw_analysis: str = ""
     requires_urgent_review: bool = False
 
@@ -88,6 +90,13 @@ class ImageAnalysis:
             )
             for label, prob in sorted_probs[:5]:
                 lines.append(f"- {label}: {prob*100:.1f}%")
+
+        if self.classification_mode != "none":
+            lines.append(f"\n**Classification Mode:** {self.classification_mode}")
+            if "is_pneumonia" in self.classification_details:
+                lines.append(
+                    f"**Pneumonia Decision:** {'positive' if self.classification_details['is_pneumonia'] else 'negative'}"
+                )
 
         return "\n".join(lines)
 
@@ -338,6 +347,8 @@ Provide ONE word overall assessment: NEW, IMPROVED, WORSENED, UNCHANGED, or RESO
         include_classification: bool = True,
         modality: ImageModality = ImageModality.CHEST_XRAY,
         skip_classification_if_confident: bool = True,
+        classification_mode: str = "multilabel",
+        classification_threshold: float = 0.5,
     ) -> ImageAnalysis:
         """
         Perform complete image analysis.
@@ -348,6 +359,8 @@ Provide ONE word overall assessment: NEW, IMPROVED, WORSENED, UNCHANGED, or RESO
             include_classification: Whether to run zero-shot classification
             modality: Type of imaging
             skip_classification_if_confident: Skip MedSigLIP if MedGemma is confident (saves ~3-5s)
+            classification_mode: Classification strategy: "multilabel", "binary", or "ensemble"
+            classification_threshold: Positive threshold for binary/ensemble pneumonia decisions
 
         Returns:
             ImageAnalysis with findings, impression, and classifications
@@ -373,26 +386,69 @@ Provide ONE word overall assessment: NEW, IMPROVED, WORSENED, UNCHANGED, or RESO
         analysis = self._parse_analysis(raw_analysis, modality)
 
         # Run classification if requested
-        if include_classification and self.classifier:
-            # Check if MedGemma analysis is confident (skip classification for latency)
-            skip_classification = False
-            if skip_classification_if_confident:
-                raw_lower = raw_analysis.lower()
-                # Skip if MedGemma is confident (no uncertainty markers)
-                uncertainty_markers = ["uncertain", "unclear", "cannot determine",
-                                       "difficult to assess", "limited", "suboptimal"]
-                has_uncertainty = any(marker in raw_lower for marker in uncertainty_markers)
-                skip_classification = not has_uncertainty
+        if include_classification:
+            mode = classification_mode.strip().lower()
+            if mode not in self.CLASSIFICATION_MODES:
+                valid_modes = ", ".join(self.CLASSIFICATION_MODES)
+                raise ValueError(f"Unsupported classification_mode='{classification_mode}'. Use one of: {valid_modes}")
 
-            if not skip_classification:
-                labels = self.CXR_LABELS if modality == ImageModality.CHEST_XRAY else []
-                if labels:
-                    probs = self.classifier.classify(image, labels)
+            analysis.classification_mode = mode
+
+            if modality != ImageModality.CHEST_XRAY:
+                analysis.classification_details = {
+                    "status": "skipped",
+                    "reason": "classification currently supports chest_xray only",
+                }
+            elif not self.classifier:
+                analysis.classification_details = {
+                    "status": "skipped",
+                    "reason": "classifier not loaded",
+                }
+            elif mode == "multilabel":
+                # Check if MedGemma analysis is confident (skip classification for latency)
+                skip_classification = False
+                if skip_classification_if_confident:
+                    raw_lower = raw_analysis.lower()
+                    # Skip if MedGemma is confident (no uncertainty markers)
+                    uncertainty_markers = ["uncertain", "unclear", "cannot determine",
+                                           "difficult to assess", "limited", "suboptimal"]
+                    has_uncertainty = any(marker in raw_lower for marker in uncertainty_markers)
+                    skip_classification = not has_uncertainty
+
+                if skip_classification:
+                    analysis.classification_details = {
+                        "status": "skipped",
+                        "reason": "medgemma_confident_primary_analysis",
+                    }
+                else:
+                    probs = self.classifier.classify(image, self.CXR_LABELS)
                     # Map to simple labels
                     analysis.classification_probs = {
                         simple: probs[enhanced]
                         for simple, enhanced in zip(self.CXR_LABELS_SIMPLE, self.CXR_LABELS)
                     }
+                    analysis.classification_details = {"status": "completed"}
+            elif mode == "binary":
+                probs = self.classify_pneumonia_binary(image)
+                is_pneumonia = probs["pneumonia"] >= classification_threshold
+                analysis.classification_probs = probs
+                analysis.classification_details = {
+                    "status": "completed",
+                    "threshold": classification_threshold,
+                    "is_pneumonia": is_pneumonia,
+                    "positive_label": "pneumonia",
+                }
+            elif mode == "ensemble":
+                ensemble = self.classify_with_ensemble(
+                    image,
+                    clinical_context=clinical_context,
+                    threshold=classification_threshold,
+                )
+                analysis.classification_probs = {
+                    "normal": max(0.0, min(1.0, 1.0 - ensemble["pneumonia_score"])),
+                    "pneumonia": max(0.0, min(1.0, ensemble["pneumonia_score"])),
+                }
+                analysis.classification_details = ensemble
 
         return analysis
 
@@ -485,6 +541,7 @@ Provide ONE word overall assessment: NEW, IMPROVED, WORSENED, UNCHANGED, or RESO
         self,
         image: Union[Image.Image, str, Path],
         clinical_context: Optional[str] = None,
+        threshold: float = 0.4,
     ) -> Dict[str, Any]:
         """
         Ensemble classification combining MedGemma analysis with MedSigLIP.
@@ -496,6 +553,7 @@ Provide ONE word overall assessment: NEW, IMPROVED, WORSENED, UNCHANGED, or RESO
         Args:
             image: PIL Image or path
             clinical_context: Optional clinical information
+            threshold: Decision threshold for binary pneumonia label
 
         Returns:
             Dictionary with ensemble results:
@@ -525,7 +583,7 @@ Answer:"""
         ensemble_score = siglip_score * 0.4 + gemma_score * 0.6
 
         # Threshold for pneumonia detection
-        is_pneumonia = ensemble_score > 0.4
+        is_pneumonia = ensemble_score >= threshold
 
         return {
             "pneumonia_score": ensemble_score,
@@ -533,6 +591,7 @@ Answer:"""
             "gemma_abnormal": gemma_abnormal,
             "gemma_response": gemma_response.strip(),
             "is_pneumonia": is_pneumonia,
+            "threshold": threshold,
         }
 
     def generate_report(
@@ -807,3 +866,4 @@ Format as a formal radiology report with:
             raw_prior_analysis=prior_findings,
             raw_current_analysis=current_findings,
         )
+    CLASSIFICATION_MODES = ("multilabel", "binary", "ensemble")

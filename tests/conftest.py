@@ -40,67 +40,11 @@ def sample_cxr_image():
     return Image.fromarray(np.zeros((1024, 1024, 3), dtype=np.uint8))
 
 
-@pytest.fixture
-def sample_pathology_image():
-    """Create a sample pathology tile image."""
-    # Typical tile size
-    return Image.fromarray(
-        np.random.randint(0, 255, (512, 512, 3), dtype=np.uint8)
-    )
-
-
-@pytest.fixture
-def sample_ct_volume():
-    """Create a sample CT volume as list of images."""
-    return [
-        Image.fromarray(np.zeros((256, 256, 3), dtype=np.uint8))
-        for _ in range(50)
-    ]
-
-
-@pytest.fixture
-def sample_fhir_patient():
-    """Create a sample FHIR Patient resource."""
-    return {
-        "resourceType": "Patient",
-        "id": "test-patient-1",
-        "name": [{"given": ["Test"], "family": "Patient"}],
-        "birthDate": "1980-01-01",
-        "gender": "male",
-    }
-
-
-@pytest.fixture
-def sample_fhir_bundle(sample_fhir_patient):
-    """Create a sample FHIR Bundle for testing."""
-    return {
-        "resourceType": "Bundle",
-        "type": "collection",
-        "entry": [
-            {"resource": sample_fhir_patient},
-            {
-                "resource": {
-                    "resourceType": "Condition",
-                    "id": "test-condition-1",
-                    "code": {"coding": [{"display": "Test Condition"}]},
-                    "clinicalStatus": {"coding": [{"code": "active"}]},
-                }
-            },
-        ],
-    }
-
-
 # Skip tests that require GPU
 def pytest_configure(config):
     """Add custom markers."""
     config.addinivalue_line(
         "markers", "requires_gpu: mark test as requiring GPU"
-    )
-    config.addinivalue_line(
-        "markers", "requires_openslide: mark test as requiring OpenSlide"
-    )
-    config.addinivalue_line(
-        "markers", "requires_langgraph: mark test as requiring LangGraph"
     )
 
 
@@ -118,29 +62,3 @@ def pytest_collection_modifyitems(config, items):
         for item in items:
             if "requires_gpu" in item.keywords:
                 item.add_marker(skip_gpu)
-
-    # Check OpenSlide availability
-    try:
-        import openslide
-        openslide_available = True
-    except ImportError:
-        openslide_available = False
-
-    if not openslide_available:
-        skip_openslide = pytest.mark.skip(reason="OpenSlide not available")
-        for item in items:
-            if "requires_openslide" in item.keywords:
-                item.add_marker(skip_openslide)
-
-    # Check LangGraph availability
-    try:
-        import langgraph
-        langgraph_available = True
-    except ImportError:
-        langgraph_available = False
-
-    if not langgraph_available:
-        skip_langgraph = pytest.mark.skip(reason="LangGraph not available")
-        for item in items:
-            if "requires_langgraph" in item.keywords:
-                item.add_marker(skip_langgraph)
