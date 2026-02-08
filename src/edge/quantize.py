@@ -59,7 +59,7 @@ def _compute_text_embeddings(
 
 
 class _VisionWithProjection:
-    """Wrapper that runs vision_model + visual_projection + L2 norm."""
+    """Wrapper that runs vision_model + L2 norm (SigLIP has no projection layer)."""
     pass
 
 
@@ -71,9 +71,9 @@ def export_medsiglip_onnx(
     """
     Export MedSigLIP vision encoder + projection to ONNX format.
 
-    Exports a wrapper that includes both the vision encoder and the
-    visual projection head, so the ONNX output is already in the
-    shared embedding space (matching get_image_features output).
+    Exports the vision encoder with L2 normalization, so the ONNX
+    output is already in the shared embedding space (matching
+    get_image_features output). SigLIP has no separate projection layer.
 
     Args:
         output_path: Path for the output ONNX file
@@ -96,23 +96,23 @@ def export_medsiglip_onnx(
     model.eval()
 
     # Wrapper that mirrors model.get_image_features():
-    #   vision_model -> pooler_output -> visual_projection -> L2 normalize
-    class VisionProjectionWrapper(nn.Module):
-        def __init__(self, vision_model, visual_projection):
+    #   vision_model -> pooler_output -> L2 normalize
+    # Note: SigLIP has no separate visual_projection layer (unlike CLIP).
+    # get_image_features() returns pooler_output directly.
+    class VisionWrapper(nn.Module):
+        def __init__(self, vision_model):
             super().__init__()
             self.vision_model = vision_model
-            self.visual_projection = visual_projection
 
         def forward(self, pixel_values):
             vision_outputs = self.vision_model(pixel_values=pixel_values)
             pooled_output = vision_outputs.pooler_output
-            image_features = self.visual_projection(pooled_output)
-            image_features = image_features / image_features.norm(
+            image_features = pooled_output / pooled_output.norm(
                 dim=-1, keepdim=True
             )
             return image_features
 
-    wrapper = VisionProjectionWrapper(model.vision_model, model.visual_projection)
+    wrapper = VisionWrapper(model.vision_model)
     wrapper.eval()
 
     # Create dummy input matching processor output
