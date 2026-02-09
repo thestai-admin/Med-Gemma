@@ -196,6 +196,7 @@ def quantize_onnx_int8(
     Returns:
         Path to the quantized model
     """
+    import onnxruntime as ort
     from onnxruntime.quantization import quantize_dynamic, QuantType
 
     output_path = Path(output_path)
@@ -216,5 +217,19 @@ def quantize_onnx_int8(
     print(f"Original: {original_size:.1f} MB")
     print(f"Quantized: {quantized_size:.1f} MB")
     print(f"Reduction: {reduction:.1f}%")
+
+    # Verify INT8 output matches FP32 (cosine similarity)
+    fp32_sess = ort.InferenceSession(str(onnx_path), providers=["CPUExecutionProvider"])
+    int8_sess = ort.InferenceSession(str(output_path), providers=["CPUExecutionProvider"])
+    test_input = np.random.RandomState(42).randn(1, 3, 448, 448).astype(np.float32)
+    fp32_out = fp32_sess.run(None, {"pixel_values": test_input})[0].flatten()
+    int8_out = int8_sess.run(None, {"pixel_values": test_input})[0].flatten()
+    cosim = float(np.dot(fp32_out, int8_out) / (
+        np.linalg.norm(fp32_out) * np.linalg.norm(int8_out) + 1e-8))
+    print(f"INT8 vs FP32 cosine similarity: {cosim:.6f}")
+    if cosim < 0.99:
+        print(f"WARNING: INT8 diverges from FP32 (cosim={cosim:.4f}). "
+              "Attention pooling is sensitive to INT8 quantization. "
+              "Use FP32 ONNX for accurate edge inference.")
 
     return str(output_path)
