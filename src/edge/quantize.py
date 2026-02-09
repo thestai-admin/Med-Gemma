@@ -50,7 +50,7 @@ def _compute_text_embeddings(
     model = AutoModel.from_pretrained(model_id)
     model.eval()
 
-    text_inputs = processor(text=labels, return_tensors="pt", padding=True)
+    text_inputs = processor(text=labels, return_tensors="pt", padding="max_length")
     with torch.no_grad():
         text_features = model.get_text_features(**text_inputs)
         text_features = text_features / text_features.norm(dim=-1, keepdim=True)
@@ -158,6 +158,13 @@ def export_medsiglip_onnx(
     if not onnx_match:
         print(f"WARNING: ONNX output diverges from PyTorch (max diff={max_diff:.4f})")
 
+    # Extract SigLIP learned logit_scale and logit_bias for edge inference.
+    # The GPU path uses model(**inputs) which internally applies these;
+    # the edge path must apply them explicitly after cosine similarity.
+    logit_scale = float(model.logit_scale.exp().item())
+    logit_bias = float(model.logit_bias.item())
+    print(f"SigLIP logit_scale={logit_scale:.4f}, logit_bias={logit_bias:.4f}")
+
     # Save preprocessor config for edge inference
     import json
     preproc_config = {
@@ -165,6 +172,8 @@ def export_medsiglip_onnx(
         "image_std": [0.5, 0.5, 0.5],
         "size": 448,
         "rescale_factor": 1.0 / 255.0,
+        "logit_scale": logit_scale,
+        "logit_bias": logit_bias,
     }
     config_path = output_path.parent / "preprocess_config.json"
     with open(str(config_path), "w") as f:

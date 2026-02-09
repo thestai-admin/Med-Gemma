@@ -72,6 +72,8 @@ class EdgeClassifier:
         self._image_mean = np.array([0.5, 0.5, 0.5], dtype=np.float32)
         self._image_std = np.array([0.5, 0.5, 0.5], dtype=np.float32)
         self._image_size = 448
+        self._logit_scale = 10.0  # fallback; overwritten by config
+        self._logit_bias = 0.0    # fallback; overwritten by config
         try:
             import json
             config_path = self.model_path.parent / "preprocess_config.json"
@@ -80,6 +82,8 @@ class EdgeClassifier:
             self._image_mean = np.array(cfg["image_mean"], dtype=np.float32)
             self._image_std = np.array(cfg["image_std"], dtype=np.float32)
             self._image_size = cfg["size"]
+            self._logit_scale = float(cfg.get("logit_scale", 10.0))
+            self._logit_bias = float(cfg.get("logit_bias", 0.0))
         except (FileNotFoundError, KeyError):
             pass  # use defaults
 
@@ -102,10 +106,10 @@ class EdgeClassifier:
         """
         from PIL import Image
 
-        # Resize to model input size (BILINEAR matches SigLIP processor)
+        # Resize to model input size (BICUBIC matches SigLIP processor default)
         size = self._image_size
         image = image.convert("RGB").resize(
-            (size, size), Image.Resampling.BILINEAR
+            (size, size), Image.Resampling.BICUBIC
         )
 
         # Convert to numpy and rescale to [0, 1]
@@ -141,11 +145,12 @@ class EdgeClassifier:
         # Both are L2-normalized, so dot product = cosine similarity
         similarities = np.dot(image_features, self.text_embeddings.T).squeeze()
 
-        # Scale similarities for sharper softmax (SigLIP uses learned temperature)
-        similarities = similarities * 10.0
+        # Apply SigLIP's learned logit_scale and logit_bias (saved during export).
+        # GPU path: logits = logit_scale * (image @ text.T) + logit_bias
+        logits = similarities * self._logit_scale + self._logit_bias
 
         # Apply softmax to get probabilities
-        exp_sim = np.exp(similarities - np.max(similarities))
+        exp_sim = np.exp(logits - np.max(logits))
         probs = exp_sim / exp_sim.sum()
 
         return {
