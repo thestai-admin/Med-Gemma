@@ -97,16 +97,22 @@ def export_medsiglip_onnx(
 
     # Wrapper that mirrors model.get_image_features():
     #   vision_model -> pooler_output -> L2 normalize
-    # Note: SigLIP has no separate visual_projection layer (unlike CLIP).
-    # get_image_features() returns pooler_output directly.
+    # IMPORTANT: Must use return_dict=False + positional indexing [1]
+    # so ONNX tracing captures the correct output tensor.
+    # With return_dict=True (default), the BaseModelOutputWithPooling
+    # dict-like object doesn't trace correctly to ONNX.
     class VisionWrapper(nn.Module):
         def __init__(self, vision_model):
             super().__init__()
             self.vision_model = vision_model
 
         def forward(self, pixel_values):
-            vision_outputs = self.vision_model(pixel_values=pixel_values)
-            pooled_output = vision_outputs.pooler_output
+            vision_outputs = self.vision_model(
+                pixel_values=pixel_values,
+                return_dict=False,
+            )
+            # Index [1] = pooler_output (attention-pooled features)
+            pooled_output = vision_outputs[1]
             image_features = pooled_output / pooled_output.norm(
                 dim=-1, keepdim=True
             )
@@ -120,7 +126,7 @@ def export_medsiglip_onnx(
     dummy_image = Image.new("RGB", (448, 448))
     pixel_values = processor(images=dummy_image, return_tensors="pt")["pixel_values"]
 
-    # Verify wrapper matches get_image_features
+    # Verify wrapper matches get_image_features (PyTorch)
     with torch.no_grad():
         wrapper_out = wrapper(pixel_values)
         direct_out = model.get_image_features(pixel_values)
@@ -128,7 +134,7 @@ def export_medsiglip_onnx(
         match = torch.allclose(wrapper_out, direct_out, atol=1e-5)
         print(f"Wrapper matches get_image_features: {match}")
 
-    print(f"Exporting vision encoder + projection to ONNX: {output_path}")
+    print(f"Exporting vision encoder to ONNX: {output_path}")
     torch.onnx.export(
         wrapper,
         (pixel_values,),
@@ -139,8 +145,31 @@ def export_medsiglip_onnx(
             "pixel_values": {0: "batch_size"},
             "image_features": {0: "batch_size"},
         },
-        opset_version=14,
+        opset_version=17,
     )
+
+    # Verify ONNX output matches PyTorch output
+    import onnxruntime as ort
+    ort_session = ort.InferenceSession(str(output_path), providers=["CPUExecutionProvider"])
+    onnx_out = ort_session.run(None, {"pixel_values": pixel_values.numpy()})[0]
+    onnx_match = np.allclose(wrapper_out.numpy(), onnx_out, atol=1e-4)
+    max_diff = np.max(np.abs(wrapper_out.numpy() - onnx_out))
+    print(f"ONNX matches PyTorch: {onnx_match} (max diff: {max_diff:.6f})")
+    if not onnx_match:
+        print(f"WARNING: ONNX output diverges from PyTorch (max diff={max_diff:.4f})")
+
+    # Save preprocessor config for edge inference
+    import json
+    preproc_config = {
+        "image_mean": [0.5, 0.5, 0.5],
+        "image_std": [0.5, 0.5, 0.5],
+        "size": 448,
+        "rescale_factor": 1.0 / 255.0,
+    }
+    config_path = output_path.parent / "preprocess_config.json"
+    with open(str(config_path), "w") as f:
+        json.dump(preproc_config, f, indent=2)
+    print(f"Saved preprocessor config: {config_path}")
 
     # Save text embeddings alongside ONNX model
     if save_text_embeddings:

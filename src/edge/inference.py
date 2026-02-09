@@ -68,6 +68,21 @@ class EdgeClassifier:
                 "Run scripts/export_edge_model.py to generate them."
             )
 
+        # Load preprocessor config (saved during export), fall back to defaults
+        self._image_mean = np.array([0.5, 0.5, 0.5], dtype=np.float32)
+        self._image_std = np.array([0.5, 0.5, 0.5], dtype=np.float32)
+        self._image_size = 448
+        try:
+            import json
+            config_path = self.model_path.parent / "preprocess_config.json"
+            with open(str(config_path)) as f:
+                cfg = json.load(f)
+            self._image_mean = np.array(cfg["image_mean"], dtype=np.float32)
+            self._image_std = np.array(cfg["image_std"], dtype=np.float32)
+            self._image_size = cfg["size"]
+        except (FileNotFoundError, KeyError):
+            pass  # use defaults
+
         # Get model input details
         self.input_name = self.session.get_inputs()[0].name
         self.input_shape = self.session.get_inputs()[0].shape
@@ -87,16 +102,17 @@ class EdgeClassifier:
         """
         from PIL import Image
 
-        # Resize to model input size
-        image = image.convert("RGB").resize((448, 448))
+        # Resize to model input size (BILINEAR matches SigLIP processor)
+        size = self._image_size
+        image = image.convert("RGB").resize(
+            (size, size), Image.Resampling.BILINEAR
+        )
 
-        # Convert to numpy and normalize to [0, 1]
+        # Convert to numpy and rescale to [0, 1]
         pixel_values = np.array(image, dtype=np.float32) / 255.0
 
-        # Apply ImageNet normalization (same as SigLIP)
-        mean = np.array([0.5, 0.5, 0.5], dtype=np.float32)
-        std = np.array([0.5, 0.5, 0.5], dtype=np.float32)
-        pixel_values = (pixel_values - mean) / std
+        # Apply normalization (values from saved preprocessor config)
+        pixel_values = (pixel_values - self._image_mean) / self._image_std
 
         # Transpose to (C, H, W) and add batch dimension
         pixel_values = pixel_values.transpose(2, 0, 1)
