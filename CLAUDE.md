@@ -19,13 +19,13 @@ Patient -> IntakeAgent -> ImagingAgent -> ReasoningAgent -> GuidelinesAgent -> E
 - Edge (CPU): MedSigLIP ONNX INT8 for binary pneumonia screening (`src/edge/`)
 - Cloud (GPU): Full 5-agent pipeline with MedGemma
 
-**Entry point:** `PrimaCareOrchestrator.run()` in `src/agents/orchestrator.py`. The orchestrator lazy-loads all models and agents via `@property` accessors — no model loads at import time.
+**Entry point:** `PrimaCareOrchestrator.run()` in `src/agents/orchestrator.py`. The orchestrator lazy-loads all models and agents via `@property` accessors — no model loads at import time. It can optionally run intake + imaging concurrently using `ThreadPoolExecutor`.
 
 **Agent pipeline (src/agents/):**
 - `IntakeAgent` — Structures patient history into formal HPI format
 - `ImagingAgent` — CXR analysis with MedGemma + zero-shot classification via MedSigLIP. Supports three classification modes: `multilabel`, `binary`, `ensemble`
 - `ReasoningAgent` — Generates differential diagnosis, workup, and disposition
-- `GuidelinesAgent` — RAG over clinical guidelines using sentence-transformers (CPU) + MedGemma synthesis
+- `GuidelinesAgent` — RAG over clinical guidelines using sentence-transformers (CPU) + MedGemma synthesis. Falls back to keyword matching if embeddings unavailable
 - `PatientEducationAgent` — Converts technical reports to patient-friendly language at 3 reading levels (basic, intermediate, detailed) with glossary
 
 **Edge module (src/edge/):**
@@ -46,6 +46,8 @@ Each intermediate result has `to_prompt_context()` for chaining. `PrimaCareResul
 **Lazy imports:** `src/__init__.py` uses `__getattr__` to lazily load all heavy submodules. Lightweight imports don't pull in torch/transformers.
 
 **Evaluation (src/eval/):** Deterministic binary classification metrics (`confusion_counts`, `compute_binary_metrics`, `evaluate_scores`, `sweep_thresholds`, `select_threshold`, `bootstrap_metric_ci`) and latency profiling (`profile_orchestrator_latency`).
+
+**Gradio demo (app/demo.py):** 7-tab interactive UI — CXR Analysis, Zero-Shot Classification, Medical Q&A, Longitudinal Comparison, Patient Education, Report Upload, Pipeline Profiling. Requires GPU.
 
 ## Commands
 
@@ -79,6 +81,14 @@ python scripts/prepare_guidelines.py
 **Primary development happens on Kaggle notebooks** (T4 GPU). The recommended submission path is `notebooks/05-cxr-first-submission.ipynb`. `notebooks/04-agentic-workflow.ipynb` is the extended demo with profiling.
 
 **Local development** is for code organization, tests, and git management — no GPU available locally. Tests use `mock_medgemma` and `mock_medsiglip` fixtures from `tests/conftest.py`.
+
+## Coding Style
+
+- PEP 8 with 4-space indentation and type hints where practical
+- `snake_case` for functions/modules, `PascalCase` for classes
+- Dataclasses with typed fields for all result objects; keep methods small and composable
+- Docstrings: triple-quoted, concise purpose + behavior, matching existing style
+- Commits: imperative, sentence-style subjects (e.g., "Add patient education agent")
 
 ## Kaggle-Specific Requirements
 
@@ -121,7 +131,7 @@ For longitudinal imaging (multiple images), process sequentially and call `torch
 - All tests run locally without GPU using `mock_medgemma`/`mock_medsiglip` fixtures
 - Custom marker: `requires_gpu` (auto-skipped when GPU unavailable)
 - Test naming: `tests/test_<feature>.py`, functions as `test_<behavior>()`
-- Current: 42 tests passing, 1 skipped (GPU)
+- Add or update tests for any behavior change in agents or orchestrator flows
 
 ## Known Issues to Ignore
 
