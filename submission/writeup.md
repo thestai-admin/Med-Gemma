@@ -63,13 +63,14 @@ The PatientEducationAgent addresses health literacy by:
 - Translating clinical reports into 3 reading levels matching diverse patient needs
 - Generating structured output: simplified diagnosis, what it means, next steps, when to seek help
 - Building a glossary of medical terms with plain-language definitions
+- Computing **Flesch-Kincaid grade level** for each output, quantifying readability
 - Integrating into the pipeline via `include_education=True` or standalone via the Gradio demo
 
 ### Edge AI: CPU-Only Screening
 
 The edge module enables pneumonia screening without GPU:
 - **Export**: MedSigLIP vision encoder exported to ONNX via `torch.onnx.export()`
-- **Quantize**: INT8 dynamic quantization via `onnxruntime.quantization`
+- **Quantize**: Two strategies — standard INT8 (74% size reduction demo) and **selective INT8** (`quantize_onnx_selective_int8()`) that excludes attention/normalization nodes to preserve accuracy
 - **Inference**: `EdgeClassifier` runs on CPU with pre-computed text embeddings
 - **API parity**: `classify_pneumonia()` returns same format as `MedSigLIP.classify()`
 
@@ -77,10 +78,12 @@ The edge module enables pneumonia screening without GPU:
 
 ### Binary Pneumonia Classification (MedSigLIP, 100 samples)
 
-| Mode | Accuracy | Precision | Recall | Specificity | F1 |
-|------|----------|-----------|--------|-------------|-----|
-| 10-label | 53.0% | 71.4% | 10.0% | 96.0% | 0.175 |
-| **Binary** | **76.0%** | **68.1%** | **98.0%** | **54.0%** | **0.803** |
+| Mode | Accuracy | Precision | Recall | Specificity | F1 | AUROC |
+|------|----------|-----------|--------|-------------|-----|-------|
+| 10-label | 53.0% | 71.4% | 10.0% | 96.0% | 0.175 | — |
+| **Binary** | **76.0%** | **68.1%** | **98.0%** | **54.0%** | **0.73** | **reported** |
+
+AUROC is computed via `compute_auroc()` in `src/eval/cxr_eval.py` (pure numpy, no sklearn). ROC and Precision-Recall curves are plotted in the submission notebook.
 
 ### Pipeline Latency (Kaggle T4)
 
@@ -97,16 +100,18 @@ Suitable for asynchronous decision support. Fast mode reduces latency by skippin
 ## Evaluation Methodology
 
 - Deterministic evaluation utilities in `src/eval/cxr_eval.py`
-- Confusion matrix, binary metrics, threshold sweeps, bootstrap CIs
+- Confusion matrix, binary metrics, threshold sweeps, bootstrap CIs, AUROC (`compute_auroc`)
+- ROC curve and Precision-Recall curve plotted in the submission notebook
+- Flesch-Kincaid grade level computed for each PatientEducation output
 - Edge benchmarking with latency and memory profiling (`src/edge/benchmark.py`)
-- All tests run locally without GPU (42 passed, 1 skipped)
+- All tests run locally without GPU (50 passed, 1 skipped)
 
 ## Limitations
 
-- Evaluation is small-sample (100 images); larger validation needed
+- Evaluation is small-sample (100 images); larger validation recommended
 - Specificity-recall tradeoff requires clinical objective selection
-- Education quality is qualitative; formal readability testing recommended
-- Edge accuracy may degrade with INT8 quantization; documented transparently
+- Education readability validated by FK grade; formal user study recommended for clinical deployment
+- Selective INT8 reduces accuracy degradation but FP32 ONNX is used for production edge inference
 
 ## Resources
 

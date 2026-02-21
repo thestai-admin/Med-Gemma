@@ -14,8 +14,46 @@ Three reading levels:
 - detailed: full clinical detail with terminology defined
 """
 
+import re
 from dataclasses import dataclass, field
 from typing import Optional, List, Dict
+
+
+def _count_syllables(word: str) -> int:
+    """Estimate syllable count using vowel-group heuristics."""
+    word = word.lower().strip(".,;:!?\"'()[]")
+    if not word:
+        return 0
+    vowels = "aeiou"
+    count = 0
+    prev_vowel = False
+    for char in word:
+        is_vowel = char in vowels
+        if is_vowel and not prev_vowel:
+            count += 1
+        prev_vowel = is_vowel
+    # Adjust for silent trailing 'e'
+    if word.endswith("e") and count > 1:
+        count -= 1
+    return max(1, count)
+
+
+def flesch_kincaid_grade(text: str) -> float:
+    """
+    Compute Flesch-Kincaid Grade Level for the given text.
+
+    FK = 0.39 * (words/sentences) + 11.8 * (syllables/words) - 15.59
+
+    Returns:
+        Approximate US school grade level (target: <=6 for basic, <=10 for intermediate)
+    """
+    sentences = [s.strip() for s in re.split(r"[.!?]+", text) if s.strip()]
+    n_sentences = max(len(sentences), 1)
+    words = re.findall(r"\b[a-zA-Z]+\b", text)
+    n_words = max(len(words), 1)
+    n_syllables = sum(_count_syllables(w) for w in words)
+    grade = 0.39 * (n_words / n_sentences) + 11.8 * (n_syllables / n_words) - 15.59
+    return round(grade, 1)
 
 
 @dataclass
@@ -27,6 +65,7 @@ class PatientEducation:
     next_steps: str = ""
     when_to_seek_help: str = ""
     glossary: Dict[str, str] = field(default_factory=dict)
+    flesch_kincaid_grade: Optional[float] = None  # Quantified readability score
     raw_response: str = ""
 
     def to_prompt_context(self) -> str:
@@ -46,9 +85,10 @@ class PatientEducation:
 
     def to_report_section(self) -> str:
         """Generate formatted section for clinical report."""
+        grade_str = f" | Flesch-Kincaid Grade: {self.flesch_kincaid_grade}" if self.flesch_kincaid_grade is not None else ""
         lines = [
             "-" * 40,
-            f"PATIENT EDUCATION ({self.reading_level.upper()} LEVEL)",
+            f"PATIENT EDUCATION ({self.reading_level.upper()} LEVEL{grade_str})",
             "-" * 40,
         ]
         if self.simplified_diagnosis:
@@ -228,13 +268,23 @@ Provide your response in this exact format:
 
         glossary = self._parse_glossary(sections.get("GLOSSARY", ""))
 
+        simplified = sections.get("SIMPLIFIED DIAGNOSIS", "").strip()
+        what_it_means = sections.get("WHAT IT MEANS", "").strip()
+        next_steps = sections.get("NEXT STEPS", "").strip()
+        when_to_seek_help = sections.get("WHEN TO SEEK HELP", "").strip()
+
+        # Compute readability over the substantive content (excluding glossary)
+        body_text = " ".join(filter(None, [simplified, what_it_means, next_steps, when_to_seek_help]))
+        fk_grade = flesch_kincaid_grade(body_text) if body_text else None
+
         return PatientEducation(
             reading_level=reading_level,
-            simplified_diagnosis=sections.get("SIMPLIFIED DIAGNOSIS", "").strip(),
-            what_it_means=sections.get("WHAT IT MEANS", "").strip(),
-            next_steps=sections.get("NEXT STEPS", "").strip(),
-            when_to_seek_help=sections.get("WHEN TO SEEK HELP", "").strip(),
+            simplified_diagnosis=simplified,
+            what_it_means=what_it_means,
+            next_steps=next_steps,
+            when_to_seek_help=when_to_seek_help,
             glossary=glossary,
+            flesch_kincaid_grade=fk_grade,
             raw_response=response,
         )
 

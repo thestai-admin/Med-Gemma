@@ -25,11 +25,11 @@ Patient -> IntakeAgent -> ImagingAgent -> ReasoningAgent -> GuidelinesAgent -> E
 - `IntakeAgent` — Structures patient history into formal HPI format
 - `ImagingAgent` — CXR analysis with MedGemma + zero-shot classification via MedSigLIP. Supports three classification modes: `multilabel`, `binary`, `ensemble`
 - `ReasoningAgent` — Generates differential diagnosis, workup, and disposition
-- `GuidelinesAgent` — RAG over clinical guidelines using sentence-transformers (CPU) + MedGemma synthesis
+- `GuidelinesAgent` — RAG over clinical guidelines using sentence-transformers (CPU) for embedding retrieval + MedGemma for synthesis. Falls back to keyword retrieval if `data/guidelines/embeddings.npz` doesn't exist; run `scripts/prepare_guidelines.py` once to generate it.
 - `PatientEducationAgent` — Converts technical reports to patient-friendly language at 3 reading levels (basic, intermediate, detailed) with glossary
 
 **Edge module (src/edge/):**
-- `EdgeClassifier` — CPU-only pneumonia screening via ONNX-quantized MedSigLIP
+- `EdgeClassifier` — CPU-only pneumonia screening via ONNX-quantized MedSigLIP. Requires a pre-exported ONNX model file; `classify_pneumonia(image)` returns `{"normal": float, "pneumonia": float}`.
 - `quantize.py` — ONNX export + INT8 dynamic quantization
 - `benchmark.py` — Latency, memory, and accuracy benchmarking
 
@@ -58,7 +58,8 @@ pytest
 
 # Run a specific test file or by keyword
 pytest tests/test_education.py
-pytest tests/test_edge.py
+pytest -k education
+pytest -k edge
 pytest -k longitudinal
 
 # Run Gradio demo locally (requires GPU)
@@ -70,9 +71,20 @@ python scripts/export_edge_model.py
 # Run edge benchmarks (CPU only)
 python scripts/run_edge_benchmark.py
 
-# Generate guideline embeddings (one-time setup, requires sentence-transformers)
+# Generate guideline embeddings (one-time setup, required for GuidelinesAgent semantic RAG)
 python scripts/prepare_guidelines.py
 ```
+
+## Orchestrator Run Options
+
+Key parameters to `PrimaCareOrchestrator.run()` that affect behavior:
+- `classification_mode`: `"multilabel"` (default), `"binary"`, or `"ensemble"`
+- `fast_mode=True`: Skips GuidelinesAgent; downgrades multilabel → binary classification
+- `parallel_execution=True`: Runs IntakeAgent and ImagingAgent concurrently via `ThreadPoolExecutor`; higher memory pressure on T4
+- `include_education=True`: Activates PatientEducationAgent (off by default)
+- `profile=True`: Adds per-stage timings to `result.timings`
+
+Shortcut methods on the orchestrator: `analyze_image()` (image-only path), `run_longitudinal()` (compares prior vs. current CXR), `get_differential()`.
 
 ## Development Environment
 
@@ -122,6 +134,13 @@ For longitudinal imaging (multiple images), process sequentially and call `torch
 - Custom marker: `requires_gpu` (auto-skipped when GPU unavailable)
 - Test naming: `tests/test_<feature>.py`, functions as `test_<behavior>()`
 - Current: 42 tests passing, 1 skipped (GPU)
+
+## Coding Conventions
+
+- PEP 8, 4-space indentation, type hints where practical
+- `snake_case` for functions/modules, `PascalCase` for classes; use clinical/domain names
+- Keep dataclasses explicit; prefer small composable methods
+- Commit messages: imperative, sentence-style subjects (match existing history)
 
 ## Known Issues to Ignore
 

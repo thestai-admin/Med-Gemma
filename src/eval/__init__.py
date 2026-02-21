@@ -11,6 +11,7 @@ from .cxr_eval import (
     sweep_thresholds,
     select_threshold,
     bootstrap_metric_ci,
+    compute_auroc,
     profile_orchestrator_latency,
 )
 
@@ -25,5 +26,6 @@ __all__ = [
     "sweep_thresholds",
     "select_threshold",
     "bootstrap_metric_ci",
+    "compute_auroc",
     "profile_orchestrator_latency",
 ]

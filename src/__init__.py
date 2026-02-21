@@ -31,6 +31,7 @@ __all__ = [
     "sweep_thresholds",
     "select_threshold",
     "bootstrap_metric_ci",
+    "compute_auroc",
     "profile_orchestrator_latency",
     # Edge AI
     "EdgeClassifier",
@@ -57,6 +58,7 @@ _LAZY_EXPORTS = {
     "sweep_thresholds": ("src.eval", "sweep_thresholds"),
     "select_threshold": ("src.eval", "select_threshold"),
     "bootstrap_metric_ci": ("src.eval", "bootstrap_metric_ci"),
+    "compute_auroc": ("src.eval", "compute_auroc"),
     "profile_orchestrator_latency": ("src.eval", "profile_orchestrator_latency"),
     # Edge AI
     "EdgeClassifier": ("src.edge", "EdgeClassifier"),

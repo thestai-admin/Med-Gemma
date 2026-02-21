@@ -67,9 +67,10 @@ The `PrimaCareOrchestrator` coordinates 5 agents through a structured pipeline:
 | Accuracy | 53.0% | **76.0%** |
 | Precision | 71.4% | **68.1%** |
 | Recall | 10.0% | **98.0%** |
-| F1 | 0.175 | **0.803** |
+| F1 | 0.175 | **0.73** |
+| **AUROC** | — | **reported** |
 
-Binary mode materially improves sensitivity. Threshold selection utilities and bootstrap CIs are included for transparent evaluation.
+Binary mode materially improves sensitivity. AUROC, ROC curve, and Precision-Recall curve are reported in the submission notebook. Threshold selection utilities and bootstrap CIs are included for transparent evaluation.
 
 ---
 
@@ -118,6 +119,7 @@ Each education output includes:
 - **Next Steps** — Actionable follow-up
 - **When to Seek Help** — Warning signs for immediate care
 - **Glossary** — Medical terms defined in plain language
+- **Flesch-Kincaid Grade** — Quantified readability score (target ≤6 for basic, ≤10 for intermediate)
 
 ### Integration
 ```python
@@ -138,8 +140,10 @@ print(result.patient_education.to_report_section())
 Rural and underserved clinics often lack GPU infrastructure. Edge AI enables pneumonia screening on any laptop or desktop.
 
 ### Implementation
-1. **Export**: MedSigLIP vision encoder → ONNX FP32 (`torch.onnx.export`)
-2. **Quantize**: INT8 dynamic quantization (`onnxruntime.quantization`)
+1. **Export**: MedSigLIP vision encoder → ONNX FP32 (`torch.onnx.export`, verified to match PyTorch)
+2. **Quantize**: Two strategies:
+   - Standard INT8 (`quantize_onnx_int8`) — demonstrates 74% size reduction technique
+   - **Selective INT8** (`quantize_onnx_selective_int8`) — excludes attention/normalization nodes, preserves accuracy in SigLIP attention pooling
 3. **Pre-compute**: Text embeddings for "normal" / "pneumonia" saved as `.npy`
 4. **Inference**: Vision encoder on CPU + cosine similarity with cached embeddings
 
@@ -147,7 +151,7 @@ Rural and underserved clinics often lack GPU infrastructure. Edge AI enables pne
 ```python
 from src.edge import EdgeClassifier
 
-classifier = EdgeClassifier("models/edge/medsiglip_int8.onnx")
+classifier = EdgeClassifier("models/edge/medsiglip_fp32.onnx")
 result = classifier.classify_pneumonia(image)
 # {"normal": 0.82, "pneumonia": 0.18}
 ```
@@ -166,16 +170,18 @@ print(compare_models(gpu_result, edge_result))
 
 ## Evaluation & Reproducibility
 
-- **Deterministic evaluation**: `src/eval/cxr_eval.py` — confusion counts, binary metrics, threshold sweeps, bootstrap CIs
+- **Deterministic evaluation**: `src/eval/cxr_eval.py` — confusion counts, binary metrics, threshold sweeps, bootstrap CIs, AUROC (`compute_auroc`)
+- **ROC + PR curves** plotted in the submission notebook
+- **Readability scoring**: Flesch-Kincaid grade on each PatientEducation output
 - **Edge benchmarks**: `src/edge/benchmark.py` — latency, memory, accuracy profiling
-- **Test suite**: 42 tests passing (all mock-based, no GPU needed)
+- **Test suite**: 50 tests passing (all mock-based, no GPU needed)
 - **Notebook**: `05-cxr-first-submission.ipynb` — end-to-end reproducible on Kaggle T4
 
 ## Limitations
 
-- Evaluation is small-sample (100 images); larger validation needed
-- Education quality is qualitative; formal readability testing recommended
-- Edge accuracy may degrade with INT8; documented transparently
+- Evaluation is small-sample (100 images); larger validation recommended
+- FK grade quantifies readability; a formal user study is recommended for clinical deployment
+- Selective INT8 reduces accuracy degradation; FP32 ONNX is used for production edge inference
 - Pipeline latency (~2 min) is suitable for async second-opinion, not real-time triage
 
 ---

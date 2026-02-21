@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 from src.eval import (
     bootstrap_metric_ci,
+    compute_auroc,
     compute_binary_metrics,
     confusion_counts,
     evaluate_scores,
@@ -58,6 +59,39 @@ def test_evaluate_scores_applies_threshold_correctly():
     metrics = evaluate_scores(y_true, scores, threshold=0.6)
     assert metrics.counts.tp == 1
     assert metrics.counts.fp == 1
+
+
+def test_compute_auroc_perfect_classifier():
+    """Perfect classifier (scores match labels) should give AUROC=1.0."""
+    y_true = [0, 0, 1, 1]
+    scores = [0.1, 0.2, 0.8, 0.9]
+    auroc = compute_auroc(y_true, scores)
+    assert abs(auroc - 1.0) < 1e-6
+
+
+def test_compute_auroc_random_classifier():
+    """Random classifier (scores independent of labels) should give AUROC≈0.5."""
+    import numpy as np
+    rng = np.random.default_rng(0)
+    y_true = [int(x) for x in rng.integers(0, 2, 200)]
+    scores = [float(x) for x in rng.random(200)]
+    auroc = compute_auroc(y_true, scores)
+    assert 0.3 < auroc < 0.7  # loose bound for small sample randomness
+
+
+def test_compute_auroc_range():
+    """AUROC must lie in [0, 1]."""
+    y_true = [0, 1, 0, 1, 1]
+    scores = [0.3, 0.7, 0.6, 0.2, 0.9]
+    auroc = compute_auroc(y_true, scores)
+    assert 0.0 <= auroc <= 1.0
+
+
+def test_compute_auroc_requires_both_classes():
+    """AUROC with only one class should raise ValueError."""
+    import pytest
+    with pytest.raises(ValueError, match="positive and one negative"):
+        compute_auroc([1, 1, 1], [0.5, 0.6, 0.7])
 
 
 def test_profile_orchestrator_latency_aggregates_runs():
