@@ -7,7 +7,7 @@ All tests use mock models - no GPU required.
 import pytest
 from unittest.mock import Mock, patch
 
-from src.agents.education import PatientEducationAgent, PatientEducation
+from src.agents.education import PatientEducationAgent, PatientEducation, flesch_kincaid_grade
 
 
 MOCK_EDUCATION_RESPONSE = """**SIMPLIFIED DIAGNOSIS:**
@@ -191,6 +191,39 @@ def test_education_profile_timing(mock_medgemma, mock_medsiglip):
 
     assert "education" in result.timings
     assert result.timings["education"] >= 0
+
+
+def test_flesch_kincaid_grade_simple_text():
+    """Simple short-word text should score at a low grade level."""
+    simple = "You have a cold. Rest and drink water. See the doctor if worse."
+    grade = flesch_kincaid_grade(simple)
+    assert isinstance(grade, float)
+    assert grade < 8  # simple text should be below 8th grade
+
+
+def test_flesch_kincaid_grade_complex_text():
+    """Medical jargon text should score higher than simple text."""
+    simple = "You are sick. Rest and drink water."
+    complex_text = (
+        "The radiological examination demonstrates consolidative opacification "
+        "in the right lower lobe with associated bronchial pneumogram, consistent "
+        "with community-acquired pneumococcal pneumonia requiring antibiotic therapy."
+    )
+    assert flesch_kincaid_grade(complex_text) > flesch_kincaid_grade(simple)
+
+
+def test_educate_populates_flesch_kincaid_grade(education_agent, mock_result):
+    """educate() should populate flesch_kincaid_grade on the result."""
+    education = education_agent.educate(mock_result, reading_level="basic")
+    assert education.flesch_kincaid_grade is not None
+    assert isinstance(education.flesch_kincaid_grade, float)
+
+
+def test_report_section_includes_grade(education_agent, mock_result):
+    """to_report_section() should include the FK grade when available."""
+    education = education_agent.educate(mock_result, reading_level="basic")
+    section = education.to_report_section()
+    assert "Flesch-Kincaid Grade" in section
 
 
 def test_education_in_to_dict(mock_medgemma, mock_medsiglip):

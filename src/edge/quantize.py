@@ -239,6 +239,78 @@ def quantize_onnx_int8(
     if cosim < 0.99:
         print(f"WARNING: INT8 diverges from FP32 (cosim={cosim:.4f}). "
               "Attention pooling is sensitive to INT8 quantization. "
-              "Use FP32 ONNX for accurate edge inference.")
+              "Use quantize_onnx_selective_int8() to exclude attention nodes, "
+              "or use FP32 ONNX for accurate edge inference.")
+
+    return str(output_path)
+
+
+def quantize_onnx_selective_int8(
+    onnx_path: str,
+    output_path: str,
+    exclude_keywords: Optional[List[str]] = None,
+) -> str:
+    """
+    Quantize an ONNX model to INT8, excluding attention and normalization nodes.
+
+    Standard dynamic INT8 degrades SigLIP-style attention pooling because
+    pooling attention weights are precision-sensitive. This function inspects
+    the model graph and excludes nodes whose names contain attention- or
+    normalization-related keywords before quantizing, preserving accuracy
+    while still reducing model size for linear projection layers.
+
+    Args:
+        onnx_path: Path to the FP32 ONNX model
+        output_path: Path for the quantized output model
+        exclude_keywords: Node name substrings to exclude from quantization.
+            Defaults to ["attn", "attention", "pool", "norm", "layer_norm"].
+
+    Returns:
+        Path to the quantized model
+    """
+    import onnx
+    import onnxruntime as ort
+    from onnxruntime.quantization import quantize_dynamic, QuantType
+
+    if exclude_keywords is None:
+        exclude_keywords = ["attn", "attention", "pool", "norm", "layer_norm"]
+
+    output_path_obj = Path(output_path)
+    output_path_obj.parent.mkdir(parents=True, exist_ok=True)
+
+    # Inspect model graph to find precision-sensitive nodes to skip
+    model = onnx.load(str(onnx_path))
+    nodes_to_exclude = [
+        node.name
+        for node in model.graph.node
+        if any(kw in node.name.lower() for kw in exclude_keywords)
+    ]
+    print(f"Selective INT8: excluding {len(nodes_to_exclude)} attention/norm nodes "
+          f"out of {len(model.graph.node)} total")
+
+    quantize_dynamic(
+        model_input=str(onnx_path),
+        model_output=str(output_path),
+        weight_type=QuantType.QInt8,
+        nodes_to_exclude=nodes_to_exclude,
+    )
+
+    # Report size reduction and verify accuracy
+    original_size = Path(onnx_path).stat().st_size / (1024 * 1024)
+    quantized_size = output_path_obj.stat().st_size / (1024 * 1024)
+    reduction = (1 - quantized_size / original_size) * 100
+    print(f"Original: {original_size:.1f} MB  →  Selective INT8: {quantized_size:.1f} MB  ({reduction:.1f}% reduction)")
+
+    fp32_sess = ort.InferenceSession(str(onnx_path), providers=["CPUExecutionProvider"])
+    int8_sess = ort.InferenceSession(str(output_path), providers=["CPUExecutionProvider"])
+    test_input = np.random.RandomState(42).randn(1, 3, 448, 448).astype(np.float32)
+    fp32_out = fp32_sess.run(None, {"pixel_values": test_input})[0].flatten()
+    int8_out = int8_sess.run(None, {"pixel_values": test_input})[0].flatten()
+    cosim = float(np.dot(fp32_out, int8_out) / (
+        np.linalg.norm(fp32_out) * np.linalg.norm(int8_out) + 1e-8))
+    print(f"Selective INT8 vs FP32 cosine similarity: {cosim:.6f}")
+    if cosim < 0.99:
+        print(f"WARNING: Selective INT8 still diverges (cosim={cosim:.4f}). "
+              "Consider expanding exclude_keywords or using FP32 ONNX.")
 
     return str(output_path)

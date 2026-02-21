@@ -225,6 +225,55 @@ def bootstrap_metric_ci(
     return float(np.quantile(values, lower_q)), float(np.quantile(values, upper_q))
 
 
+def compute_auroc(
+    y_true: Sequence[int],
+    scores: Sequence[float],
+) -> float:
+    """
+    Compute Area Under the ROC Curve (AUROC) using the trapezoidal rule.
+
+    Pure numpy implementation — no sklearn dependency.
+
+    Args:
+        y_true: Ground-truth binary labels (0 or 1)
+        scores: Predicted probability scores for the positive class
+
+    Returns:
+        AUROC value in [0, 1]
+    """
+    y_true_arr = _as_array(y_true)
+    scores_arr = np.asarray(scores, dtype=np.float32)
+
+    if y_true_arr.shape != scores_arr.shape:
+        raise ValueError("y_true and scores must have the same shape.")
+
+    n_pos = int(np.sum(y_true_arr == 1))
+    n_neg = int(np.sum(y_true_arr == 0))
+    if n_pos == 0 or n_neg == 0:
+        raise ValueError("AUROC requires at least one positive and one negative sample.")
+
+    # Sort by score descending to build the ROC curve
+    order = np.argsort(-scores_arr)
+    sorted_labels = y_true_arr[order]
+
+    tpr_points: List[float] = [0.0]
+    fpr_points: List[float] = [0.0]
+    tp, fp = 0, 0
+    for label in sorted_labels:
+        if label == 1:
+            tp += 1
+        else:
+            fp += 1
+        tpr_points.append(tp / n_pos)
+        fpr_points.append(fp / n_neg)
+    tpr_points.append(1.0)
+    fpr_points.append(1.0)
+
+    # np.trapz was renamed to np.trapezoid in NumPy 2.0
+    _trapz = getattr(np, "trapezoid", None) or np.trapz
+    return float(_trapz(tpr_points, fpr_points))
+
+
 def profile_orchestrator_latency(
     orchestrator,
     run_kwargs: Dict[str, object],
