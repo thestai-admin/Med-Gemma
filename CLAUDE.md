@@ -76,7 +76,7 @@ python scripts/prepare_guidelines.py
 
 ## Development Environment
 
-**Primary development happens on Kaggle notebooks** (T4 GPU). The recommended submission path is `notebooks/05-cxr-first-submission.ipynb`. `notebooks/04-agentic-workflow.ipynb` is the extended demo with profiling.
+**Primary development happens on Kaggle notebooks** (T4 GPU). The submission notebook is `notebooks/primacare-ai-submission.ipynb` (covers all 4 tracks).
 
 **Local development** is for code organization, tests, and git management — no GPU available locally. Tests use `mock_medgemma` and `mock_medsiglip` fixtures from `tests/conftest.py`.
 

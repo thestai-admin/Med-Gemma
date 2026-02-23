@@ -41,10 +41,9 @@ env/
 Thumbs.db
 
 # Project specific
-data/samples/*
-!data/samples/.gitkeep
-outputs/*
-!outputs/.gitkeep
+data/samples/
+outputs/
+models/
 
 # Secrets
 .env
@@ -60,3 +59,12 @@ credentials.json
 # Logs
 *.log
 logs/
+
+# Tool configs
+.opencode.json
+.deepeval
+.claude/
+.pytest_cache/
+
+# ONNX models (generated at runtime)
+*.onnx

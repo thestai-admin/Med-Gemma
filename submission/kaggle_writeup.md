@@ -169,7 +169,7 @@ print(compare_models(gpu_result, edge_result))
 - **Deterministic evaluation**: `src/eval/cxr_eval.py` — confusion counts, binary metrics, threshold sweeps, bootstrap CIs
 - **Edge benchmarks**: `src/edge/benchmark.py` — latency, memory, accuracy profiling
 - **Test suite**: 42 tests passing (all mock-based, no GPU needed)
-- **Notebook**: `05-cxr-first-submission.ipynb` — end-to-end reproducible on Kaggle T4
+- **Notebook**: `primacare-ai-submission.ipynb` — end-to-end reproducible on Kaggle T4
 
 ## Limitations
 
@@ -182,7 +182,7 @@ print(compare_models(gpu_result, edge_result))
 
 ## Links
 
-- **Notebook**: [05-cxr-first-submission.ipynb](https://github.com/thestai-admin/Med-Gemma/blob/main/notebooks/05-cxr-first-submission.ipynb)
+- **Notebook**: [primacare-ai-submission.ipynb](https://github.com/thestai-admin/Med-Gemma/blob/main/notebooks/primacare-ai-submission.ipynb)
 - **Code**: [github.com/thestai-admin/Med-Gemma](https://github.com/thestai-admin/Med-Gemma)
 - **Video Script**: [video_script.md](https://github.com/thestai-admin/Med-Gemma/blob/main/submission/video/video_script.md)
 - **Demo**: `python app/demo.py` (7 tabs including Patient Education)

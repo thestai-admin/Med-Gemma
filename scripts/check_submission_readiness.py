@@ -115,7 +115,7 @@ def main() -> int:
     ])
 
     # Primary notebook should include outputs for submission evidence.
-    checks.append(_check_notebook_outputs(ROOT / "notebooks" / "05-cxr-first-submission.ipynb"))
+    checks.append(_check_notebook_outputs(ROOT / "notebooks" / "primacare-ai-submission.ipynb"))
 
     # Placeholder scan in user-facing docs.
     placeholder_paths = [

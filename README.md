@@ -47,7 +47,7 @@ MedSigLIP ONNX INT8 -> Pneumonia? --Y--> Full 5-Agent Pipeline
 
 ### Run on Kaggle
 
-1. Upload `notebooks/05-cxr-first-submission.ipynb` to Kaggle
+1. Upload `notebooks/primacare-ai-submission.ipynb` to Kaggle
 2. Add your HF_TOKEN as a Kaggle secret
 3. Enable GPU accelerator (T4)
 4. Run all cells
@@ -147,16 +147,14 @@ python3 scripts/check_submission_readiness.py
 
 | Notebook | Description | Status |
 |----------|-------------|--------|
-| `05-cxr-first-submission.ipynb` | CXR-first reproducible submission with education + edge | **Primary** |
-| `04-agentic-workflow.ipynb` | Extended demo with evaluation metrics and profiling | Reference |
+| `primacare-ai-submission.ipynb` | Full submission covering all 4 tracks | **Primary** |
 
 ## Project Structure
 
 ```
 Med Gemma/
 ├── notebooks/              # Kaggle-ready Jupyter notebooks
-│   ├── 05-cxr-first-submission.ipynb  # Primary submission
-│   └── 04-agentic-workflow.ipynb      # Extended demo
+│   └── primacare-ai-submission.ipynb  # Full submission (all 4 tracks)
 ├── src/
 │   ├── model.py           # MedGemma + MedSigLIP wrappers
 │   ├── eval/              # Reproducible CXR evaluation utilities

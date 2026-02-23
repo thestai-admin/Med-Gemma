@@ -111,7 +111,7 @@ Suitable for asynchronous decision support. Fast mode reduces latency by skippin
 
 ## Resources
 
-- Submission notebook: `notebooks/05-cxr-first-submission.ipynb`
+- Submission notebook: `notebooks/primacare-ai-submission.ipynb`
 - Core code: `src/agents/`, `src/edge/`, `src/eval/`
 - Demo: `app/demo.py` (7 tabs including education)
 - Repository: Public on GitHub
