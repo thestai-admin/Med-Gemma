@@ -182,10 +182,9 @@ print(compare_models(gpu_result, edge_result))
 
 ## Links
 
+- **Live Demo**: [huggingface.co/spaces/tns/primacare-ai](https://huggingface.co/spaces/tns/primacare-ai)
 - **Notebook**: [primacare-ai-submission.ipynb](https://github.com/thestai-admin/Med-Gemma/blob/main/notebooks/primacare-ai-submission.ipynb)
 - **Code**: [github.com/thestai-admin/Med-Gemma](https://github.com/thestai-admin/Med-Gemma)
-- **Video Script**: [video_script.md](https://github.com/thestai-admin/Med-Gemma/blob/main/submission/video/video_script.md)
-- **Demo**: `python app/demo.py` (7 tabs including Patient Education)
 
 ---
 
