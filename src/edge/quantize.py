@@ -21,6 +21,8 @@ import numpy as np
 
 
 def _compute_text_embeddings(
+    model=None,
+    processor=None,
     model_id: str = "google/medsiglip-448",
     labels: Optional[List[str]] = None,
 ) -> np.ndarray:
@@ -31,14 +33,15 @@ def _compute_text_embeddings(
     only needs to run the vision encoder at inference time.
 
     Args:
-        model_id: HuggingFace model ID for MedSigLIP
+        model: Already-loaded AutoModel (avoids reloading)
+        processor: Already-loaded AutoProcessor (avoids reloading)
+        model_id: HuggingFace model ID (used only if model/processor not provided)
         labels: Text labels to embed (defaults to binary pneumonia labels)
 
     Returns:
         numpy array of shape (n_labels, embed_dim)
     """
     import torch
-    from transformers import AutoModel, AutoProcessor
 
     if labels is None:
         labels = [
@@ -46,9 +49,11 @@ def _compute_text_embeddings(
             "chest x-ray showing pneumonia, infection, consolidation, or infiltrates",
         ]
 
-    processor = AutoProcessor.from_pretrained(model_id)
-    model = AutoModel.from_pretrained(model_id)
-    model.eval()
+    if model is None or processor is None:
+        from transformers import AutoModel, AutoProcessor
+        processor = processor or AutoProcessor.from_pretrained(model_id)
+        model = model or AutoModel.from_pretrained(model_id)
+        model.eval()
 
     text_inputs = processor(text=labels, return_tensors="pt", padding="max_length")
     with torch.no_grad():
@@ -145,6 +150,11 @@ def export_medsiglip_onnx(
         print(f"Wrapper matches get_image_features: {match}")
 
     print(f"Exporting vision encoder to ONNX: {output_path}")
+    # Suppress noisy onnxscript/torch.onnx warnings during export
+    import logging as _logging
+    for _logger_name in ["torch.onnx", "onnxscript"]:
+        _logging.getLogger(_logger_name).setLevel(_logging.ERROR)
+
     torch.onnx.export(
         wrapper,
         (pixel_values,),
@@ -194,7 +204,7 @@ def export_medsiglip_onnx(
     if save_text_embeddings:
         embeddings_path = output_path.parent / "text_embeddings.npy"
         print(f"Pre-computing text embeddings: {embeddings_path}")
-        text_embeddings = _compute_text_embeddings(model_id)
+        text_embeddings = _compute_text_embeddings(model=model, processor=processor)
         np.save(str(embeddings_path), text_embeddings)
 
     print(f"Export complete: {output_path}")

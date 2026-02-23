@@ -260,6 +260,11 @@ class MedSigLIP:
 
         with torch.no_grad():
             outputs = self.model.get_image_features(**inputs)
+            # Handle both tensor and BaseModelOutputWithPooling return types
+            if hasattr(outputs, 'pooler_output'):
+                outputs = outputs.pooler_output
+            elif not isinstance(outputs, torch.Tensor):
+                outputs = outputs[1]
 
         return outputs
 
