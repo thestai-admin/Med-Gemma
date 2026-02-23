@@ -60,16 +60,16 @@ The `PrimaCareOrchestrator` coordinates 5 agents through a structured pipeline:
 - **GuidelinesAgent**: RAG with semantic retrieval + keyword fallback
 - **EducationAgent**: Patient-friendly translation at 3 reading levels
 
-### Quantitative Results (Binary Pneumonia, 100 samples)
+### Quantitative Results (Binary Pneumonia, 100 balanced samples)
 
 | Metric | 10-Label | Binary Mode |
 |--------|----------|-------------|
-| Accuracy | 53.0% | **76.0%** |
-| Precision | 71.4% | **68.1%** |
-| Recall | 10.0% | **98.0%** |
-| F1 | 0.175 | **0.803** |
+| Accuracy | 53.0% | **63.0%** |
+| Precision | 71.4% | **57.5%** |
+| Recall | 10.0% | **100.0%** |
+| F1 | 0.175 | **0.73** |
 
-Binary mode materially improves sensitivity. Threshold selection utilities and bootstrap CIs are included for transparent evaluation.
+Binary mode with recall-priority threshold (0.30) achieves perfect recall — no pneumonia cases missed. F1 95% CI: [0.64, 0.80]. Threshold selection utilities and bootstrap CIs are included for transparent evaluation.
 
 ---
 
@@ -182,9 +182,9 @@ print(compare_models(gpu_result, edge_result))
 
 ## Links
 
-- **Notebook**: [05-cxr-first-submission.ipynb](https://www.kaggle.com/code/YOUR_USERNAME/primacare-ai-submission) *(update with your Kaggle notebook URL)*
+- **Notebook**: [05-cxr-first-submission.ipynb](https://github.com/thestai-admin/Med-Gemma/blob/main/notebooks/05-cxr-first-submission.ipynb)
 - **Code**: [github.com/thestai-admin/Med-Gemma](https://github.com/thestai-admin/Med-Gemma)
-- **Video**: *(add your video link here)*
+- **Video Script**: [video_script.md](https://github.com/thestai-admin/Med-Gemma/blob/main/submission/video/video_script.md)
 - **Demo**: `python app/demo.py` (7 tabs including Patient Education)
 
 ---

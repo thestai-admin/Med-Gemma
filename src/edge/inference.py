@@ -13,9 +13,26 @@ Usage:
 """
 
 from pathlib import Path
+import sys
+import types
 from typing import Dict, Optional
 
 import numpy as np
+
+try:
+    import onnxruntime as ort
+except ImportError:
+    # Keep tests fully mockable even when onnxruntime is not installed.
+    ort = types.ModuleType("onnxruntime")
+
+    def _missing_inference_session(*args, **kwargs):
+        raise ImportError(
+            "onnxruntime is required for EdgeClassifier. "
+            "Install it with: pip install onnxruntime"
+        )
+
+    ort.InferenceSession = _missing_inference_session
+    sys.modules.setdefault("onnxruntime", ort)
 
 
 class EdgeClassifier:
@@ -43,8 +60,6 @@ class EdgeClassifier:
             text_embeddings_path: Path to pre-computed text embeddings (.npy).
                                   Defaults to text_embeddings.npy in the same directory.
         """
-        import onnxruntime as ort
-
         self.model_path = Path(model_path)
         if not self.model_path.exists():
             raise FileNotFoundError(f"ONNX model not found: {model_path}")

@@ -20,7 +20,29 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from src.edge.quantize import export_medsiglip_onnx, quantize_onnx_int8
 
 
+def _require_modules() -> bool:
+    """Ensure required optional dependencies are installed before export."""
+    missing = []
+    for module in ["torch", "transformers", "onnxruntime"]:
+        try:
+            __import__(module)
+        except ModuleNotFoundError:
+            missing.append(module)
+
+    if not missing:
+        return True
+
+    print("Missing required dependencies for edge export:")
+    for module in missing:
+        print(f"  - {module}")
+    print("Install dependencies (in an environment with internet access) and retry.")
+    return False
+
+
 def main():
+    if not _require_modules():
+        return 1
+
     output_dir = Path("models/edge")
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -63,7 +85,8 @@ def main():
 
     print()
     print("Export complete! Files saved to models/edge/")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

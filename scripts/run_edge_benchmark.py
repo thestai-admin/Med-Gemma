@@ -47,6 +47,18 @@ def main():
     )
     args = parser.parse_args()
 
+    try:
+        import onnxruntime  # noqa: F401
+    except ModuleNotFoundError:
+        print("Missing dependency: onnxruntime")
+        print("Install dependencies and retry: python3 -m pip install --user --break-system-packages onnxruntime")
+        return 1
+
+    if not Path(args.model_path).exists():
+        print(f"Model file not found: {args.model_path}")
+        print("Generate edge models first with: python3 scripts/export_edge_model.py")
+        return 1
+
     from src.edge.inference import EdgeClassifier
     from src.edge.benchmark import run_edge_benchmark
 
@@ -75,7 +87,8 @@ def main():
         if key != "latencies":
             print(f"  {key:<25} {value}")
     print("=" * 50)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

@@ -80,7 +80,7 @@ The edge module enables pneumonia screening without GPU:
 | Mode | Accuracy | Precision | Recall | Specificity | F1 |
 |------|----------|-----------|--------|-------------|-----|
 | 10-label | 53.0% | 71.4% | 10.0% | 96.0% | 0.175 |
-| **Binary** | **76.0%** | **68.1%** | **98.0%** | **54.0%** | **0.803** |
+| **Binary** | **63.0%** | **57.5%** | **100.0%** | **26.0%** | **0.73** |
 
 ### Pipeline Latency (Kaggle T4)
 
@@ -90,7 +90,8 @@ The edge module enables pneumonia screening without GPU:
 | Imaging | 16.9s |
 | Reasoning | 38.0s |
 | Guidelines | 32.9s |
-| **Total** | **111.0s** |
+| Education | ~15s |
+| **Total** | **~126s** |
 
 Suitable for asynchronous decision support. Fast mode reduces latency by skipping guidelines and using binary classification.
 

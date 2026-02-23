@@ -38,7 +38,7 @@ MedSigLIP ONNX INT8 -> Pneumonia? --Y--> Full 5-Agent Pipeline
 
 | Track | Prize | Status |
 |-------|-------|--------|
-| Main Track | $75K | 5-agent pipeline, F1 0.803 binary pneumonia |
+| Main Track | $75K | 5-agent pipeline, F1 0.73 binary pneumonia |
 | Agentic Workflow | $10K | 5 agents, orchestrator, RAG, profiling |
 | Novel Task | $10K | PatientEducationAgent (3 reading levels + glossary) |
 | Edge AI | $5K | MedSigLIP ONNX INT8, CPU-only inference |
@@ -122,22 +122,25 @@ result = classifier.classify_pneumonia(image)
 
 ```bash
 # Install dependencies
-pip install -r requirements.txt
+python3 -m pip install -r requirements.txt
 
 # Run tests (all use mocks, no GPU needed)
-pytest
+python3 -m pytest -p no:rerunfailures
 
 # Run Gradio demo locally (requires GPU)
-python app/demo.py
+python3 app/demo.py
 
 # Export edge model (requires GPU for initial export)
-python scripts/export_edge_model.py
+python3 scripts/export_edge_model.py
 
 # Run edge benchmarks (CPU only)
-python scripts/run_edge_benchmark.py
+python3 scripts/run_edge_benchmark.py
 
 # Generate guideline embeddings
-python scripts/prepare_guidelines.py
+python3 scripts/prepare_guidelines.py
+
+# Submission packaging checks (artifacts + unresolved placeholders)
+python3 scripts/check_submission_readiness.py
 ```
 
 ## Notebooks
@@ -175,7 +178,8 @@ Med Gemma/
 ├── scripts/
 │   ├── prepare_guidelines.py    # Embedding generation
 │   ├── export_edge_model.py     # ONNX export script
-│   └── run_edge_benchmark.py    # Benchmark runner
+│   ├── run_edge_benchmark.py    # Benchmark runner
+│   └── check_submission_readiness.py  # Submission gating checks
 ├── submission/
 │   ├── writeup.md         # Competition writeup (all 4 tracks)
 │   └── video/             # Video demo materials

@@ -47,10 +47,10 @@ Narration:
 Display results table:
 
 Binary pneumonia (100 samples):
-- Accuracy 76.0%, Recall 98.0%, F1 0.803
+- Recall 100%, F1 0.73 (recall-priority threshold), 95% CI [0.64, 0.80]
 
 Pipeline latency (Kaggle T4):
-- Total 111s, suitable for asynchronous decision support
+- Total ~126s (with education), suitable for asynchronous decision support
 
 Test coverage:
 - 42 tests passing, all using mocks (no GPU needed)

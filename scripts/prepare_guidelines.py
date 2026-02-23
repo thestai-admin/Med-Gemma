@@ -48,7 +48,7 @@ def main():
     except ImportError:
         print("ERROR: sentence-transformers not installed")
         print("Install with: pip install sentence-transformers")
-        return
+        return 1
 
     # Prepare texts for embedding
     # Combine relevant fields for better retrieval
@@ -116,7 +116,8 @@ def main():
     print("  1. Upload data/guidelines/ to Kaggle as a dataset")
     print("  2. Add dataset to your notebook inputs")
     print("  3. Use GuidelinesAgent in your pipeline")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
