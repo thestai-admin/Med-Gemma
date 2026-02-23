@@ -130,6 +130,11 @@ def export_medsiglip_onnx(
     with torch.no_grad():
         wrapper_out = wrapper(pixel_values)
         direct_out = model.get_image_features(pixel_values)
+        # Handle both tensor and BaseModelOutputWithPooling return types
+        if hasattr(direct_out, 'pooler_output'):
+            direct_out = direct_out.pooler_output
+        elif not isinstance(direct_out, torch.Tensor):
+            direct_out = direct_out[1]
         direct_out = direct_out / direct_out.norm(dim=-1, keepdim=True)
         match = torch.allclose(wrapper_out, direct_out, atol=1e-5)
         print(f"Wrapper matches get_image_features: {match}")
