@@ -53,6 +53,11 @@ def _compute_text_embeddings(
     text_inputs = processor(text=labels, return_tensors="pt", padding="max_length")
     with torch.no_grad():
         text_features = model.get_text_features(**text_inputs)
+        # Handle both tensor and BaseModelOutputWithPooling return types
+        if hasattr(text_features, 'pooler_output'):
+            text_features = text_features.pooler_output
+        elif not isinstance(text_features, torch.Tensor):
+            text_features = text_features[1]
         text_features = text_features / text_features.norm(dim=-1, keepdim=True)
 
     return text_features.cpu().numpy()
@@ -150,7 +155,7 @@ def export_medsiglip_onnx(
             "pixel_values": {0: "batch_size"},
             "image_features": {0: "batch_size"},
         },
-        opset_version=17,
+        opset_version=18,
     )
 
     # Verify ONNX output matches PyTorch output
